@@ -94,6 +94,7 @@
                         // Build DataTransferItem objects / upload remote images and replace nodes
                         const promises = [];
                         $images.each( ( i, img ) => {
+							// TODO: test if it works
                             const src = img.getAttribute( 'src' ) || '';
                             if ( src.indexOf( 'data:' ) === 0 ) {
                                 // synchronous creation from data URI
