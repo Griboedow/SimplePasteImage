@@ -1,3 +1,15 @@
+/*
+** For now that's an experiment
+**
+** that patches VE to upload remote images found in pasted content
+** and replace them with locally hosted versions.
+**
+** In other words, it allows to paste images together with text and therefore
+** convert nay data source with images into wiki pages with locally hosted images.
+**
+** Idea is to upload images and adjust the pasted HTML before VE processes it.
+*/
+
 ( function () {
     'use strict';
 
@@ -17,9 +29,12 @@
 		}
 	}
 
-	async function uploadImageByUrl( src ) {
+	// TODO: check if image exists and use it instead of uploading a duplicate
+	// TODO: check if image already removed -- force reupload if needed
+	// TODO: handle errors
+	function uploadImageByUrl( src ) {
         if ( typeof mw === 'undefined' || !mw.Api ) {
-            return null;
+            return Promise.resolve( null );
         }
         const filenamePart = ( src.split( '?' )[0].split( '/' ).pop() || 'image' ).split( '.' ).pop();
         let ext = ( filenamePart && filenamePart.length <= 6 ) ? filenamePart : 'png';
@@ -29,25 +44,22 @@
         const api = new mw.Api();
         const token = mw.user && mw.user.tokens ? mw.user.tokens.get( 'csrfToken' ) : null;
         if ( !token ) {
-            return null;
+            return Promise.resolve( null );
         }
 
-        try {
-            const res = await api.post( {
-                action: 'upload',
-                filename: filename,
-                url: src,
-                ignorewarnings: 1,
-                token: token,
-                format: 'json'
-            } );
+        return api.post( {
+            action: 'upload',
+            filename: filename,
+            url: src,
+            ignorewarnings: 1,
+            token: token,
+            format: 'json'
+        } ).then( res => {
             if ( res && res.upload && ( res.upload.result === 'Success' || res.upload.result === 'Warning' ) ) {
                 return res.upload.filename || filename;
             }
-        } catch ( e ) {
-            // todo: some handling
-        }
-        return null;
+            return null;
+        } ).catch( () => null );
     }
 
     // Patch afterPasteAddToFragmentFromExternal to break into debugger when
@@ -97,7 +109,7 @@
                                     if ( !uploadedFilename ) {
                                         return null;
                                     }
-                                    const fileHref = mw.util.getUrl( 'Special:FilePath/' + uploadedFilename );
+                                    const fileHref = mw.config.get('wgServer') + mw.util.getUrl( 'Special:FilePath/' + uploadedFilename );
                                     const resourcePath = './File:' + uploadedFilename;
 
                                     const veWrapper = '<p><span typeof="mw:File" class="ve-pasteProtect" data-ve-attributes=' +
@@ -110,7 +122,14 @@
                                             '</a>' +
                                         '</span></p>';
 
-                                    $( img ).replaceWith( $( veWrapper ) );
+									// TODO: need a smarter way -- replace all the parents up to body? 
+									const $img = $( img );
+									const $figure = $img.closest( 'figure' );
+									if ( $figure.length ) {
+										$figure.replaceWith( $( veWrapper ) );
+									} else {
+										$img.replaceWith( $( veWrapper ) );
+									}
                                     return uploadedFilename;
                                 }).catch( () => null );
                                 promises.push( p );
@@ -118,32 +137,31 @@
                         });
 
                         // wait for all uploads/replacements to finish
+						//TODO: add loading form 
                         await Promise.all( promises );
                     }
-
-                    // update html from modified DOM
-                    html = $body[0].innerHTML;
-                    beforePasteData.html = html;
 
                 } catch ( e ) {
                     // parsing failed — ignore and continue
                 }
+
+				debugger;
+
+				beforePasteData.html = $body[0].innerHTML
+				// 1) update beforePasteData (used when clipboard API path is active)
+				this.beforePasteData = beforePasteData;
+				this.beforePasteData.html = beforePasteData.html;
+
+				// 2) update pasteTarget DOM (used when VE uses a hidden paste target)
+				if ( this.$pasteTarget && typeof this.$pasteTarget.html === 'function' ) {
+					this.$pasteTarget.html( beforePasteData.html );
+				}
+
+				// 3) update the $clipboardHtml parameter if present (caller may use it)
+				if ( $clipboardHtml && $clipboardHtml.length && typeof $clipboardHtml.html === 'function' ) {
+					$clipboardHtml.html( beforePasteData.html );
+				}
             }
-
-            // 1) update beforePasteData (used when clipboard API path is active)
-            this.beforePasteData = beforePasteData;
-            this.beforePasteData.html = beforePasteData.html;
-
-            // 2) update pasteTarget DOM (used when VE uses a hidden paste target)
-            if ( this.$pasteTarget && typeof this.$pasteTarget.html === 'function' ) {
-                this.$pasteTarget.html( beforePasteData.html );
-            }
-
-            // 3) update the $clipboardHtml parameter if present (caller may use it)
-            if ( $clipboardHtml && $clipboardHtml.length && typeof $clipboardHtml.html === 'function' ) {
-                $clipboardHtml.html( beforePasteData.html );
-            }
-
             return orig.apply( this, arguments );
         };
 
@@ -151,6 +169,7 @@
     }
 
     // Try install immediately, otherwise poll until VE is ready.
+	// TODO: replace to a better soltion -- this one suggested by AI
     if ( !installPatch() ) {
         const timer = setInterval( () => {
             if ( installPatch() ) {
