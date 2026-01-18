@@ -1,12 +1,12 @@
 {
 	"name": "Simple Paste Image",
-	"version": "0.1.0",
+	"version": "0.0.1",
 	"author": [
 		"Urfiner (Nikolai Kochkin)"
 	],
 	"url": "",
 	"type": "media",
-	"description": "For upload images without pop-up upoad window in VisualEditor",
+	"description": "To simplify pasting documents with images in VisualEditor",
 	"descriptionmsg": "simplepasteimage-desc",
 	"requires": {
 		"MediaWiki": ">= 1.39.2",
@@ -21,24 +21,6 @@
 		]
 	},
 	"config": {
-		"MaxWidthImage": {
-			"description": "Maximum width of the image when inserting in px",
-			"value": 1600
-		},
-		"ImageMarker": {
-			"description": "Marker which will use for pasted document model",
-			"value": "ext_spi_img_marker"
-		},
-		"UnbreakableNodes": {
-			"description": "List (array) of document model nodes that the image will not break",
-			"value": [
-				"mwHeading"
-			]
-		},
-		"MaxNumberPicturesPerTime": {
-			"description": "Maximum number of pictures that can be uploaded at one time (but not more than 100)",
-			"value": 100
-		}
 	},
 	"ResourceFileModulePaths": {
 		"localBasePath": "modules",

@@ -1,16 +1,9 @@
 {
 	"@metadata": {
 		"authors": [
-			"Veeam Software Group GmbH"
+			"Urfiner (Nikolay Kochkin)"
 		]
 	},
 	"simplepasteimage": "Simple Paste Image",
-	"simplepasteimage-desc": "The extension allows users to auto-upload images when they paste text to VisualEditor. Unique image names are constructed from a page name and a random suffix.",
-
-	"simplepasteimage-waiting": "Inserting from buffer...",
-	"simplepasteimage-warning-uncatchable": "Warning of type [$1] could not be handled",
-	"simplepasteimage-error-uncatchable": "$1 The image has not been uploaded.",
-	"simplepasteimage-notification-error-incorrect-img-ext": "The image extension could not be correctly detected or the extension is not supported. Supported extensions: $1.",
-	"simplepasteimage-notification-error-unknown": "Unknown error. The image has not been uploaded.",
-	"simplepasteimage-msg-stub": "$1"
+	"simplepasteimage-desc": "The extension allows users to auto-upload images when they paste text to VisualEditor. Unique image names are constructed from a page name and a random suffix."
 }
