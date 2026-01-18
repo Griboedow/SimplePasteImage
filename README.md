@@ -17,6 +17,7 @@ It is a PoC for now. We havea big list to do:
 * Test what if copy-paste images from VE of the same wiki
 * ...
 * Ofc refactoring. Currently it is a mess, I wanted to see if the idea works at all
+
 Nevertheless, it works in simple scenarios
 
 ## Simple demo
