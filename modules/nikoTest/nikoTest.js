@@ -13,26 +13,26 @@
 ( function () {
     'use strict';
 
-	function generateUuid() {
-		// RFC4122 v4-ish
-		try {
-			const arr = new Uint8Array(16);
-			crypto.getRandomValues(arr);
-			// set version bits
-			arr[6] = (arr[6] & 0x0f) | 0x40;
-			arr[8] = (arr[8] & 0x3f) | 0x80;
-			const hex = Array.from(arr).map(b => ('0' + b.toString(16)).slice(-2)).join('');
-			return hex.slice(0,8) + '-' + hex.slice(8,12) + '-' + hex.slice(12,16) + '-' + hex.slice(16,20) + '-' + hex.slice(20);
-		} catch (e) {
-			// fallback
-			return Math.random().toString(16).slice(2) + Date.now().toString(16);
-		}
-	}
+    function generateUuid() {
+        // RFC4122 v4-ish
+        try {
+            const arr = new Uint8Array(16);
+            crypto.getRandomValues(arr);
+            // set version bits
+            arr[6] = (arr[6] & 0x0f) | 0x40;
+            arr[8] = (arr[8] & 0x3f) | 0x80;
+            const hex = Array.from(arr).map(b => ('0' + b.toString(16)).slice(-2)).join('');
+            return hex.slice(0,8) + '-' + hex.slice(8,12) + '-' + hex.slice(12,16) + '-' + hex.slice(16,20) + '-' + hex.slice(20);
+        } catch (e) {
+            // fallback
+            return Math.random().toString(16).slice(2) + Date.now().toString(16);
+        }
+    }
 
-	// TODO: check if image exists and use it instead of uploading a duplicate
-	// TODO: check if image already removed -- force reupload if needed
-	// TODO: handle errors
-	function uploadImageByUrl( src ) {
+    // TODO: check if image exists and use it instead of uploading a duplicate
+    // TODO: check if image already removed -- force reupload if needed
+    // TODO: handle errors
+    function uploadImageByUrl( src ) {
         if ( typeof mw === 'undefined' || !mw.Api ) {
             return Promise.resolve( null );
         }
@@ -63,7 +63,7 @@
     }
 
     // Patch afterPasteAddToFragmentFromExternal to break into debugger when
-    // pasted content contains both text and images (i.e. "текст с картинками").
+    // pasted content contains both text and images (i.e. "text with images").
     function installPatch() {
         if ( !( window.ve && ve.ce && ve.ce.Surface && ve.sanitizeHtmlToDocument && ve.ui && ve.ui.DataTransferItem ) ) {
             return false;
@@ -73,10 +73,10 @@
 
         ve.ce.Surface.prototype.afterPasteAddToFragmentFromExternal = function ( clipboardKey, $clipboardHtml, fragment, targetFragment, isMultiline, forceClipboardData ) {
             var beforePasteData = this.beforePasteData || {};
-            // возвращаем jQuery Deferred сразу (VE будет вызывать .always и т.п.)
+            // return a jQuery Deferred immediately (VE will call .always etc.)
             var wrapperDfd = $.Deferred();
 
-            // запускаем асинхронную работу в фоне
+            // run async work in background
             ( async () => {
                 try {
                     // Prefer clipboard API HTML if present, otherwise use pasteTarget HTML
@@ -110,7 +110,7 @@
                                             if ( !uploadedFilename ) {
                                                 return null;
                                             }
-                                            // получение реального URL и замена элемента (твоя логика)
+                                            // obtain the real URL and replace the element (your logic)
                                             const api2 = new mw.Api();
                                             return api2.get( {
                                                 action: 'query',
@@ -145,13 +145,22 @@
                                                         '</a>' +
                                                     '</span></p>';
                                                 const $img = $( img );
-                                                const $figure = $img.closest( 'figure' );
-                                                if ( $figure.length ) {
-                                                    $figure.replaceWith( $( veWrapper ) );
+                                                // find an ancestor that is a direct child of body
+                                                const $topAncestor = $img.parents().filter(function() {
+                                                    return this.parentNode === doc.body;
+                                                }).first();
+
+                                                if ( $topAncestor.length ) {
+                                                    // replace the whole top-level block so the new element ends up as a child of body
+                                                    $topAncestor.replaceWith( $( veWrapper ) );
+                                                } else if ( img.parentNode === doc.body ) {
+                                                    // img is already under body — replace it directly
+                                                    $img.replaceWith( $( veWrapper ) );
                                                 } else {
+                                                    // no explicit ancestor that is a child of body — move img into body, then replace
+                                                    $( doc.body ).append( $img );
                                                     $img.replaceWith( $( veWrapper ) );
                                                 }
-                                                return uploadedFilename;
                                             } ).catch( () => null );
                                         }).catch( () => null );
                                         promises.push( p );
@@ -160,16 +169,17 @@
                                 await Promise.all( promises );
                             }
 
+                            debugger;
                             beforePasteData.html = $body[0].innerHTML;
                         } catch ( e ) {
                             // parsing failed — ignore and continue
                         }
                     }
                 } catch ( e ) {
-                    // общая ошибка обработки — игнорируем чтобы не ломать VE
+                    // general processing error — ignore so as not to break VE
                 }
 
-                // обновляем beforePasteData / pasteTarget / $clipboardHtml
+                // update beforePasteData / pasteTarget / $clipboardHtml
                 this.beforePasteData = beforePasteData;
                 if ( this.$pasteTarget && typeof this.$pasteTarget.html === 'function' ) {
                     this.$pasteTarget.html( beforePasteData.html || '' );
@@ -178,7 +188,7 @@
                     $clipboardHtml.html( beforePasteData.html || '' );
                 }
 
-                // вызвать оригинал и "пробросить" его завершение в наш Deferred
+                // call original and "propagate" its completion into our Deferred
                 var origResult = orig.apply( this, arguments );
                 if ( origResult && typeof origResult.always === 'function' ) {
                     origResult.always( function() { wrapperDfd.resolve(); } );
@@ -189,7 +199,7 @@
                 }
             } )();
 
-            // возвращаем jQuery promise, у которого есть .always
+            // return a jQuery promise that has .always
             return wrapperDfd.promise();
         };
 
@@ -197,7 +207,7 @@
     }
 
     // Try install immediately, otherwise poll until VE is ready.
-	// TODO: replace to a better soltion -- this one suggested by AI
+    // TODO: replace to a better solution -- this one suggested by AI
     if ( !installPatch() ) {
         const timer = setInterval( () => {
             if ( installPatch() ) {
