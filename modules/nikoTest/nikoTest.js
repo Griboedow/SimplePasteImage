@@ -71,99 +71,126 @@
 
         const orig = ve.ce.Surface.prototype.afterPasteAddToFragmentFromExternal;
 
-        ve.ce.Surface.prototype.afterPasteAddToFragmentFromExternal = async function ( clipboardKey, $clipboardHtml, fragment, targetFragment, isMultiline, forceClipboardData ) {
+        ve.ce.Surface.prototype.afterPasteAddToFragmentFromExternal = function ( clipboardKey, $clipboardHtml, fragment, targetFragment, isMultiline, forceClipboardData ) {
             var beforePasteData = this.beforePasteData || {};
+            // возвращаем jQuery Deferred сразу (VE будет вызывать .always и т.п.)
+            var wrapperDfd = $.Deferred();
 
-            // Prefer clipboard API HTML if present, otherwise use pasteTarget HTML
-            let html = beforePasteData.html || ( this.$pasteTarget && this.$pasteTarget.html() ) || '';
-            if ( html ) {
+            // запускаем асинхронную работу в фоне
+            ( async () => {
                 try {
-                    var doc = ve.sanitizeHtmlToDocument( html );
-                    var $body = $( doc.body );
+                    // Prefer clipboard API HTML if present, otherwise use pasteTarget HTML
+                    let html = beforePasteData.html || ( this.$pasteTarget && this.$pasteTarget.html() ) || '';
+                    if ( html ) {
+                        try {
+                            var doc = ve.sanitizeHtmlToDocument( html );
+                            var $body = $( doc.body );
 
-                    var $images = $body.find( 'img' );
-                    const imgCount = $images.length;
+                            var $images = $body.find( 'img' );
+                            const imgCount = $images.length;
 
-                    // Compute text content excluding images
-                    const $clone = $body.clone();
-                    $clone.find( 'img' ).remove();
-                    const textOnly = $clone.text().trim();
+                            // Compute text content excluding images
+                            const $clone = $body.clone();
+                            $clone.find( 'img' ).remove();
+                            const textOnly = $clone.text().trim();
 
-                    // Only care about mixed content: text + images
-                    if ( imgCount > 0 && textOnly.length > 0 ) {
-                        // Build DataTransferItem objects / upload remote images and replace nodes
-                        const promises = [];
-                        $images.each( ( i, img ) => {
-							// TODO: test if it works
-                            const src = img.getAttribute( 'src' ) || '';
-                            if ( src.indexOf( 'data:' ) === 0 ) {
-                                // synchronous creation from data URI
-                                try {
-                                    const item = ve.ui.DataTransferItem.static.newFromDataUri( src, img.outerHTML );
-                                    promises.push( Promise.resolve( item ) );
-                                } catch ( e ) {
-                                    promises.push( Promise.resolve( null ) );
-                                }
-                            } else {
-                                // async upload and replace
-                                const p = uploadImageByUrl( src ).then( uploadedFilename => {
-                                    if ( !uploadedFilename ) {
-                                        return null;
+                            if ( imgCount > 0 && textOnly.length > 0 ) {
+                                const promises = [];
+                                $images.each( ( i, img ) => {
+                                    const src = img.getAttribute( 'src' ) || '';
+                                    if ( src.indexOf( 'data:' ) === 0 ) {
+                                        try {
+                                            const item = ve.ui.DataTransferItem.static.newFromDataUri( src, img.outerHTML );
+                                            promises.push( Promise.resolve( item ) );
+                                        } catch ( e ) {
+                                            promises.push( Promise.resolve( null ) );
+                                        }
+                                    } else {
+                                        const p = uploadImageByUrl( src ).then( uploadedFilename => {
+                                            if ( !uploadedFilename ) {
+                                                return null;
+                                            }
+                                            // получение реального URL и замена элемента (твоя логика)
+                                            const api2 = new mw.Api();
+                                            return api2.get( {
+                                                action: 'query',
+                                                titles: 'File:' + uploadedFilename,
+                                                prop: 'imageinfo',
+                                                iiprop: 'url',
+                                                format: 'json'
+                                            } ).then( qres => {
+                                                let fileHref = null;
+                                                try {
+                                                    const pages = qres && qres.query && qres.query.pages;
+                                                    if ( pages ) {
+                                                        const page = pages[ Object.keys( pages )[0] ];
+                                                        if ( page && page.imageinfo && page.imageinfo[0] && page.imageinfo[0].url ) {
+                                                            fileHref = page.imageinfo[0].url;
+                                                        }
+                                                    }
+                                                } catch ( e ) {}
+                                                if ( !fileHref ) {
+                                                    const server = mw.config.get( 'wgServer' ) || '';
+                                                    const uploadPath = mw.config.get( 'wgUploadPath' ) || '/images';
+                                                    fileHref = ( server.replace( /\/$/, '' ) + '/' + uploadPath.replace( /^\/|\/$/g, '' ) + '/' + encodeURIComponent( uploadedFilename ) ).replace( /\/\//g, '/' );
+                                                }
+                                                const resourcePath = './File:' + uploadedFilename;
+                                                const veWrapper = '<p><span typeof="mw:File" class="ve-pasteProtect" data-ve-attributes=' +
+                                                    JSON.stringify( { typeof: 'mw:File' } ) +
+                                                    '>' +
+                                                        '<a href="' + fileHref + '" class="mw-file-description">' +
+                                                            '<img resource="' + resourcePath + '" src="' + fileHref + '" class="mw-file-element" decoding="async" data-file-type="bitmap" data-ve-attributes=\'' +
+                                                                JSON.stringify( { resource: resourcePath } ) +
+                                                            '\' />' +
+                                                        '</a>' +
+                                                    '</span></p>';
+                                                const $img = $( img );
+                                                const $figure = $img.closest( 'figure' );
+                                                if ( $figure.length ) {
+                                                    $figure.replaceWith( $( veWrapper ) );
+                                                } else {
+                                                    $img.replaceWith( $( veWrapper ) );
+                                                }
+                                                return uploadedFilename;
+                                            } ).catch( () => null );
+                                        }).catch( () => null );
+                                        promises.push( p );
                                     }
-                                    const fileHref = mw.config.get('wgServer') + mw.util.getUrl( 'Special:FilePath/' + uploadedFilename );
-                                    const resourcePath = './File:' + uploadedFilename;
-
-                                    const veWrapper = '<p><span typeof="mw:File" class="ve-pasteProtect" data-ve-attributes=' +
-                                        JSON.stringify( { typeof: 'mw:File' } ) +
-                                        '>' +
-                                            '<a href="' + fileHref + '" class="mw-file-description">' +
-                                                '<img resource="' + resourcePath + '" src="' + fileHref + '" class="mw-file-element" decoding="async" data-file-type="bitmap" data-ve-attributes=\'' +
-                                                    JSON.stringify( { resource: resourcePath } ) +
-                                                '\' />' +
-                                            '</a>' +
-                                        '</span></p>';
-
-									// TODO: need a smarter way -- replace all the parents up to body? 
-									const $img = $( img );
-									const $figure = $img.closest( 'figure' );
-									if ( $figure.length ) {
-										$figure.replaceWith( $( veWrapper ) );
-									} else {
-										$img.replaceWith( $( veWrapper ) );
-									}
-                                    return uploadedFilename;
-                                }).catch( () => null );
-                                promises.push( p );
+                                });
+                                await Promise.all( promises );
                             }
-                        });
 
-                        // wait for all uploads/replacements to finish
-						//TODO: add loading form 
-                        await Promise.all( promises );
+                            beforePasteData.html = $body[0].innerHTML;
+                        } catch ( e ) {
+                            // parsing failed — ignore and continue
+                        }
                     }
-
                 } catch ( e ) {
-                    // parsing failed — ignore and continue
+                    // общая ошибка обработки — игнорируем чтобы не ломать VE
                 }
 
-				debugger;
+                // обновляем beforePasteData / pasteTarget / $clipboardHtml
+                this.beforePasteData = beforePasteData;
+                if ( this.$pasteTarget && typeof this.$pasteTarget.html === 'function' ) {
+                    this.$pasteTarget.html( beforePasteData.html || '' );
+                }
+                if ( $clipboardHtml && $clipboardHtml.length && typeof $clipboardHtml.html === 'function' ) {
+                    $clipboardHtml.html( beforePasteData.html || '' );
+                }
 
-				beforePasteData.html = $body[0].innerHTML
-				// 1) update beforePasteData (used when clipboard API path is active)
-				this.beforePasteData = beforePasteData;
-				this.beforePasteData.html = beforePasteData.html;
+                // вызвать оригинал и "пробросить" его завершение в наш Deferred
+                var origResult = orig.apply( this, arguments );
+                if ( origResult && typeof origResult.always === 'function' ) {
+                    origResult.always( function() { wrapperDfd.resolve(); } );
+                } else if ( origResult && typeof origResult.then === 'function' ) {
+                    origResult.then( function() { wrapperDfd.resolve(); }, function() { wrapperDfd.reject(); } );
+                } else {
+                    wrapperDfd.resolve();
+                }
+            } )();
 
-				// 2) update pasteTarget DOM (used when VE uses a hidden paste target)
-				if ( this.$pasteTarget && typeof this.$pasteTarget.html === 'function' ) {
-					this.$pasteTarget.html( beforePasteData.html );
-				}
-
-				// 3) update the $clipboardHtml parameter if present (caller may use it)
-				if ( $clipboardHtml && $clipboardHtml.length && typeof $clipboardHtml.html === 'function' ) {
-					$clipboardHtml.html( beforePasteData.html );
-				}
-            }
-            return orig.apply( this, arguments );
+            // возвращаем jQuery promise, у которого есть .always
+            return wrapperDfd.promise();
         };
 
         return true;
