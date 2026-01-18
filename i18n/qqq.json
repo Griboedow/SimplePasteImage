@@ -1,0 +1,16 @@
+{
+	"@metadata": {
+		"authors": [
+			"Veeam Software Group GmbH"
+		]
+	},
+	"simplepasteimage": "Simple Paste Image",
+	"simplepasteimage-desc": "Extension description",
+
+	"simplepasteimage-waiting": "Text for 'Waiting window'",
+	"simplepasteimage-warning-uncatchable": "Message in console for uncatchable warnings",
+	"simplepasteimage-error-uncatchable": "Message in console for uncatchable errors",
+	"simplepasteimage-notification-error-incorrect-img-ext": "Message to the user when we can't determine the extension of an image.",
+	"simplepasteimage-notification-error-unknown": "Message to the user. Th name of msg key says it all (img has not been uploaded.",
+	"simplepasteimage-msg-stub": "Use this key when you want to send a specific text to the user."
+}

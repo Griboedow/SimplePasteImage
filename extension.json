@@ -1,0 +1,73 @@
+{
+	"name": "Simple Paste Image",
+	"version": "0.1.0",
+	"author": [
+		"Urfiner (Nikolai Kochkin)"
+	],
+	"url": "",
+	"type": "media",
+	"description": "For upload images without pop-up upoad window in VisualEditor",
+	"descriptionmsg": "simplepasteimage-desc",
+	"requires": {
+		"MediaWiki": ">= 1.39.2",
+		"extensions": {}
+	},
+	"Hooks": {
+		"VisualEditorBeforeInitialize": "MediaWiki\\Extension\\MyImageUploader\\MyImageUploaderHooks::onVisualEditorBeforeInitialize"
+	},
+	"MessagesDirs": {
+		"SimplePasteImage": [
+			"i18n"
+		]
+	},
+	"config": {
+		"MaxWidthImage": {
+			"description": "Maximum width of the image when inserting in px",
+			"value": 1600
+		},
+		"ImageMarker": {
+			"description": "Marker which will use for pasted document model",
+			"value": "ext_spi_img_marker"
+		},
+		"UnbreakableNodes": {
+			"description": "List (array) of document model nodes that the image will not break",
+			"value": [
+				"mwHeading"
+			]
+		},
+		"MaxNumberPicturesPerTime": {
+			"description": "Maximum number of pictures that can be uploaded at one time (but not more than 100)",
+			"value": 100
+		}
+	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "modules",
+		"remoteExtPath": "SimplePasteImage/modules"
+	},
+	"ResourceModules": {
+		"ext.nikoTest": {
+			"localBasePath": "modules/nikoTest",
+			"remoteExtPath": "SimplePasteImage/modules/nikoTest",
+			"packageFiles": [
+				"nikoTest.js"
+			],
+			"dependencies": [
+				"ext.visualEditor.core",
+				"ext.visualEditor.desktopArticleTarget.init",
+				"ext.visualEditor.targetLoader",
+				"mediawiki.api"
+			],
+			"targets": [
+				"desktop"
+			]
+		}
+	},
+	"attributes": {
+		"VisualEditor": {
+			"PluginModules": [
+				"ext.nikoTest"
+			]
+		}
+	},
+	"manifest_version": 2
+}
