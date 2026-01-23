@@ -27,13 +27,24 @@
 		"remoteExtPath": "SimplePasteImage/modules"
 	},
 	"ResourceModules": {
-		"ext.nikoTest": {
-			"localBasePath": "modules/nikoTest",
-			"remoteExtPath": "SimplePasteImage/modules/nikoTest",
+		"ext.simplePasteImage.imageHandler": {
+			"localBasePath": "modules/imageHandler",
+			"remoteExtPath": "SimplePasteImage/modules/imageHandler",
 			"packageFiles": [
-				"nikoTest.js"
+				"imageHandler.js"
+			],
+			"targets": [
+				"desktop"
+			]
+		},
+		"ext.simplePasteImage.imagePasteProcessor": {
+			"localBasePath": "modules/imagePasteProcessor",
+			"remoteExtPath": "SimplePasteImage/modules/imagePasteProcessor",
+			"packageFiles": [
+				"imagePasteProcessor.js"
 			],
 			"dependencies": [
+				"ext.simplePasteImage.imageHandler",
 				"ext.visualEditor.core",
 				"ext.visualEditor.desktopArticleTarget.init",
 				"ext.visualEditor.targetLoader",
@@ -47,7 +58,7 @@
 	"attributes": {
 		"VisualEditor": {
 			"PluginModules": [
-				"ext.nikoTest"
+				"ext.simplePasteImage.imagePasteProcessor"
 			]
 		}
 	},

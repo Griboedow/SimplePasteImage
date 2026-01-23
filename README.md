@@ -17,13 +17,10 @@ Simple gif to show how it works:
 
 ## Todo list
 It is a PoC for now. We havea big list to do:
-* Avoid file duplicates
 * Handle base64 images (we handle src only for now)
 * Check behaviour on re-upload deletd file
 * Error reporting
 * Wait form
-* What if img is a child of another element, and the last one contains smth useful? Currently we replace it. Need to do better.
-* Remove some symbols from name (slashs? smth else?)
 * Test paste when copy from local apps (Word?). Likely we cannot paste images in this case but
 * Test older MWs (oldest supproted?). Looks like we can make it very generic (we need ot modify buffer only).
 * Enable when pasting one file
