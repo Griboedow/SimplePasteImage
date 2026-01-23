@@ -2,6 +2,20 @@ SimplePasteImage is an extension which allows to automatically upload images whe
 
 MediaWiki page: https://www.mediawiki.org/wiki/Extension:SimplePasteImage
 
+
+
+## Installation
+* Allow uploads from external URLs by specifying $wgAllowCopyUploads = true; in LocalSettings.php
+* Download and place the file(s) in a directory called SimplePasteImage in your extensions/ folder.
+* Add the following code at the bottom of your LocalSettings.php file:
+```wfLoadExtension( 'SimplePasteImage' );```
+* Done – Navigate to Special:Version on your wiki to verify that the extension is successfully installed.
+
+## Simple demo
+Simple gif to show how it works:
+![SimplePasteImage](https://github.com/user-attachments/assets/a2a7d1c9-55e2-42f1-bfa6-73039d3640c5)
+
+## Todo list
 It is a PoC for now. We havea big list to do:
 * Avoid file duplicates
 * Handle base64 images (we handle src only for now)
@@ -19,7 +33,3 @@ It is a PoC for now. We havea big list to do:
 * Ofc refactoring. Currently it is a mess, I wanted to see if the idea works at all
 
 Nevertheless, it works in simple scenarios
-
-## Simple demo
-Simple gif to show how it works:
-![SimplePasteImage](https://github.com/user-attachments/assets/a2a7d1c9-55e2-42f1-bfa6-73039d3640c5)
