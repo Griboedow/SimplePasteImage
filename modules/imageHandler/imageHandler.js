@@ -28,6 +28,16 @@
     }
 
     /**
+     * Generate a filename for an uploaded image based on page title and extension
+     * @param {string} ext File extension (e.g., "png", "jpg")
+     * @return {string} Generated filename
+     */
+    function generateFilename( ext ) {
+        const pagenamePart = mw.config.get( 'wgTitle' ).replace( /\//g, '_' );
+        return pagenamePart + '-' + generateUuid() + '.' + ext;
+    }
+
+    /**
      * Parse upload response warnings to check for duplicate files
      * @param {Object} uploadResponse The response from the upload API
      * @return {Object|null} { isDuplicate: boolean, filename: string|null }
@@ -80,8 +90,7 @@
         let ext = ( filenamePart && filenamePart.length <= 6 ) ? filenamePart : 'png';
         if ( !/^[a-z0-9]+$/i.test( ext ) ) { ext = 'png'; }
 
-        var pagenamePart = mw.config.get( 'wgTitle' ).replace( /\//g, '_' ); 
-        var filename = pagenamePart + '-' + generateUuid() + '.' + ext;
+        const filename = generateFilename( ext );
         const token = mw.user && mw.user.tokens ? mw.user.tokens.get( 'csrfToken' ) : null;
         if ( !token ) {
             return Promise.resolve( null );
@@ -162,13 +171,6 @@
                 }
             } catch ( e ) {}
 
-            // Fallback to constructing URL from config if API didn't return it
-            if ( !fileHref ) {
-                const server = mw.config.get( 'wgServer' ) || '';
-                const uploadPath = mw.config.get( 'wgUploadPath' ) || '/images';
-                fileHref = ( server.replace( /\/$/, '' ) + '/' + uploadPath.replace( /^\/|\/$/g, '' ) + '/' + encodeURIComponent( filename ) ).replace( /\/\//g, '/' );
-            }
-
             return fileHref;
         } ).catch( () => null );
     }
@@ -194,11 +196,16 @@
 
     /**
      * Process and upload a remote image, then get its URL and build VE HTML
-     * @param {string} src The image URL to upload
+     * @param {string} src The image URL or data URI to upload
      * @return {Promise<{filename: string, fileHref: string, veHtml: string}|null>} Image data or null on failure
      */
     function processRemoteImage( src ) {
-        return uploadImageByUrl( src ).then( uploadedFilename => {
+        // Determine upload function based on source type
+        const uploadPromise = src.indexOf( 'data:' ) === 0 
+            ? uploadImageFromDataUri( src )
+            : uploadImageByUrl( src );
+
+        return uploadPromise.then( uploadedFilename => {
             if ( !uploadedFilename ) { return null; }
 
             return getImageUrl( uploadedFilename ).then( fileHref => {
@@ -213,6 +220,96 @@
         } ).catch( () => null );
     }
 
+    /**
+     * Upload an image from a data URI (base64 encoded)
+     * @param {string} dataUri The data URI (e.g. "data:image/png;base64,...")
+     * @return {Promise<string|null>} The filename if successful, null on failure
+     */
+    function uploadImageFromDataUri( dataUri ) {
+        if ( typeof mw === 'undefined' || !mw.Api ) {
+            return Promise.resolve( null );
+        }
+
+        // Parse data URI: "data:image/png;base64,iVBORw0KGgo..."
+        const matches = dataUri.match( /^data:([^;]+);base64,(.+)$/ );
+        if ( !matches ) {
+            return Promise.resolve( null );
+        }
+
+        const mimeType = matches[1]; // e.g., 'image/png'
+        const base64Data = matches[2];
+
+        // Extract extension from MIME type
+        const ext = mimeType.split( '/' )[1] || 'png';
+
+        const filename = generateFilename( ext );
+
+        // Convert base64 to Blob
+        let binaryString;
+        try {
+            binaryString = atob( base64Data );
+        } catch ( e ) {
+            return Promise.resolve( null );
+        }
+
+        const bytes = new Uint8Array( binaryString.length );
+        for ( let i = 0; i < binaryString.length; i++ ) {
+            bytes[i] = binaryString.charCodeAt( i );
+        }
+        const blob = new Blob( [bytes], { type: mimeType } );
+
+        const api = new mw.Api();
+        const token = mw.user && mw.user.tokens ? mw.user.tokens.get( 'csrfToken' ) : null;
+
+        if ( !token ) {
+            return Promise.resolve( null );
+        }
+
+        const uploadParams = {
+            action: 'upload',
+            format: 'json',
+            filename: filename,
+            file: blob,
+            token: token
+        };
+
+        return api.upload( blob, uploadParams )
+            .then( res => {
+                // Check for success
+                if ( res && res.upload && res.upload.result === 'Success' ) {
+                    return res.upload.filename || filename;
+                }
+
+                return null;
+            } )
+            .catch( (...result) => {
+                let res = result[1];
+                // Handle warnings
+                if ( res && res.upload ) {
+                    const warningInfo = parseUploadWarnings( res );
+
+                    // If it's a duplicate, return the existing filename
+                    if ( warningInfo && warningInfo.isDuplicate && warningInfo.filename ) {
+                        return warningInfo.filename;
+                    }
+
+                    // If there were other warnings, retry with ignorewarnings
+                    if ( res.upload.warnings ) {
+                        uploadParams.append( 'ignorewarnings', 1 );
+                        return api.upload( blob, uploadParams )
+                            .then( retryRes => {
+                                if ( retryRes && retryRes.upload && ( retryRes.upload.result === 'Success' || retryRes.upload.result === 'Warning' ) ) {
+                                    return retryRes.upload.filename || filename;
+                                }
+                                return null;
+                            } )
+                            .catch( () => null );
+                    }
+                }
+
+            } );
+    }
+
     // Export functions via module pattern compatible with MW
     module.exports = {
         generateUuid: generateUuid,
@@ -220,7 +317,8 @@
         parseUploadWarnings: parseUploadWarnings,
         getImageUrl: getImageUrl,
         buildVeImageWrapper: buildVeImageWrapper,
-        processRemoteImage: processRemoteImage
+        processRemoteImage: processRemoteImage,
+        uploadImageFromDataUri: uploadImageFromDataUri
     };
 
 }() );

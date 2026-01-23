@@ -15,6 +15,29 @@
 
     const imageHandler = mw.loader.require( 'ext.simplePasteImage.imageHandler' );
 
+    /**
+     * Replace an image element with VE-compatible HTML wrapper
+     * @param {HTMLElement} img The original img element
+     * @param {HTMLElement} doc The document context
+     * @param {string} veHtml The VE HTML wrapper
+     */
+    function replaceImageInDoc( img, doc, veHtml ) {
+        const $img = $( img );
+        // find an ancestor that is a direct child of body
+        const $topAncestor = $img.parents().filter( function() {
+            return this.parentNode === doc.body;
+        } ).first();
+
+        if ( $topAncestor.length ) {
+            $topAncestor.replaceWith( $( veHtml ) );
+        } else if ( img.parentNode === doc.body ) {
+            $img.replaceWith( $( veHtml ) );
+        } else {
+            $( doc.body ).append( $img );
+            $img.replaceWith( $( veHtml ) );
+        }
+    }
+
     // Patch afterPasteAddToFragmentFromExternal to process images in pasted content
     function installPatch() {
         if ( !( window.ve && ve.ce && ve.ce.Surface && ve.sanitizeHtmlToDocument && ve.ui && ve.ui.DataTransferItem ) ) {
@@ -45,35 +68,16 @@
                     var $images = $body.find( 'img' );
                     $images.each( ( _i, img ) => {
                         const src = img.getAttribute( 'src' ) || '';
-                        if ( src.indexOf( 'data:' ) === 0 ) {
-                            // Upload from base 64 data
-                            try {
-                                const item = ve.ui.DataTransferItem.static.newFromDataUri( src, img.outerHTML );
-                                promises.push( Promise.resolve( item ) );
-                            } catch ( e ) {
-                                console.log('Cannot create DataTransferItem from data URI', e);
-                                imageErrors.push( e );
+                        // Upload from base64 data URI
+                        promises.push( imageHandler.processRemoteImage( src ).then( imageData => {
+                            if ( !imageData ) { 
+                                imageErrors.push( new Error( 'Failed to process remote image: ' + src ) );
+                                return; 
                             }
-                        } else {
-                            // Upload from remote URL
-                            promises.push( imageHandler.processRemoteImage( src ).then( imageData => {
-                                if ( !imageData ) { 
-                                    imageErrors.push( new Error( 'Failed to process remote image: ' + src ) );
-                                    return; 
-                                }
-                                const $img = $( img );
-                                // find an ancestor that is a direct child of body
-                                const $topAncestor = $img.parents().filter(function() {
-                                    return this.parentNode === doc.body;
-                                }).first();
-                                if ($img.parentNode === doc.body) $topAncestor = $img;
-
-                                $topAncestor.after( $( imageData.veHtml ) );
-                                $img.remove();
-                
-                                return;
-                            }));
-                        }
+                        
+                            replaceImageInDoc( img, doc, imageData.veHtml );
+                            return;
+                        }));
                     });
 
                     await Promise.all( promises );

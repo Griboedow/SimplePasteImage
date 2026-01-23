@@ -17,7 +17,6 @@ Simple gif to show how it works:
 
 ## Todo list
 It is a PoC for now. We havea big list to do:
-* Handle base64 images (we handle src only for now)
 * Check behaviour on re-upload deletd file
 * Error reporting
 * Wait form
