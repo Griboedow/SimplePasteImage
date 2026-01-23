@@ -5,7 +5,7 @@ MediaWiki page: https://www.mediawiki.org/wiki/Extension:SimplePasteImage
 
 
 ## Installation
-* Allow uploads from external URLs by specifying $wgAllowCopyUploads = true; in LocalSettings.php
+* Allow uploads from external URLs by specifying ```$wgAllowCopyUploads = true;``` in ```LocalSettings.php```
 * Download and place the file(s) in a directory called SimplePasteImage in your extensions/ folder.
 * Add the following code at the bottom of your LocalSettings.php file:
 ```wfLoadExtension( 'SimplePasteImage' );```
