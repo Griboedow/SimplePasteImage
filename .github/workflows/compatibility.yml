@@ -1,0 +1,49 @@
+name: VisualEditor compatibility
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  paste:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        wiki: ['1.43.11', '1.44.6', '1.45.6', '1.46.2', 'REL1_47', 'master']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci && npm test
+      - run: npx playwright install --with-deps chromium
+      - name: Prepare matching MediaWiki, VisualEditor and Vector
+        run: bash tests/prepare-ci-wiki.sh '${{ matrix.wiki }}'
+      - name: Start disposable wiki
+        run: |
+          password="$(openssl rand -hex 24)"
+          echo "::add-mask::$password"
+          echo "MW_PASSWORD=$password" >> "$GITHUB_ENV"
+      - run: bash tests/start-wiki.sh
+        env:
+          MW_SOURCE: ${{ runner.temp }}/spi-wiki
+          MW_IMAGE: mediawiki:1.46
+      - name: Real clipboard and large-page regression suite
+        run: npm run test:e2e
+        env:
+          MW_URL: http://localhost:8080
+          MW_ARTIFACT_DIR: tests/artifacts/${{ matrix.wiki }}
+      - name: Server diagnostics
+        if: always()
+        run: |
+          mkdir -p tests/artifacts
+          docker logs simplepasteimage-test > tests/artifacts/server.log 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: paste-${{ matrix.wiki }}
+          path: tests/artifacts/

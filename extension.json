@@ -1,27 +1,25 @@
 {
 	"name": "Simple Paste Image",
-	"version": "0.0.3",
+	"version": "0.2.0",
 	"author": [
 		"Urfiner (Nikolai Kochkin)"
 	],
-	"url": "",
+	"url": "https://www.mediawiki.org/wiki/Extension:SimplePasteImage",
 	"type": "media",
 	"description": "To simplify pasting documents with images in VisualEditor",
 	"descriptionmsg": "simplepasteimage-desc",
 	"requires": {
-		"MediaWiki": ">= 1.39.2",
-		"extensions": {}
-	},
-	"Hooks": {
-		"VisualEditorBeforeInitialize": "MediaWiki\\Extension\\MyImageUploader\\MyImageUploaderHooks::onVisualEditorBeforeInitialize"
+		"MediaWiki": ">= 1.43.0",
+		"extensions": {
+			"VisualEditor": "*"
+		}
 	},
 	"MessagesDirs": {
 		"SimplePasteImage": [
 			"i18n"
 		]
 	},
-	"config": {
-	},
+	"config": {},
 	"ResourceFileModulePaths": {
 		"localBasePath": "modules",
 		"remoteExtPath": "SimplePasteImage/modules"
@@ -41,17 +39,24 @@
 			"localBasePath": "modules/imagePasteProcessor",
 			"remoteExtPath": "SimplePasteImage/modules/imagePasteProcessor",
 			"packageFiles": [
-				"imagePasteProcessor.js"
+				"imagePasteProcessor.js",
+				"clipboardHtml.js"
 			],
 			"dependencies": [
 				"ext.simplePasteImage.imageHandler",
-				"ext.visualEditor.core",
-				"ext.visualEditor.desktopArticleTarget.init",
-				"ext.visualEditor.targetLoader",
-				"mediawiki.api"
+				"ext.visualEditor.mwcore",
+				"ext.visualEditor.mwimage",
+				"mediawiki.api",
+				"mediawiki.notification"
 			],
 			"targets": [
 				"desktop"
+			],
+			"messages": [
+				"simplepasteimage-uploading",
+				"simplepasteimage-progress",
+				"simplepasteimage-upload-error",
+				"simplepasteimage-image-failed"
 			]
 		}
 	},

@@ -1,124 +1,148 @@
-/*
-** Image paste processor for SimplePasteImage extension
-**
-** Patches VE to upload remote images found in pasted content
-** and replace them with locally hosted versions.
-**
-** In other words, it allows to paste images together with text and therefore
-** convert any data source with images into wiki pages with locally hosted images.
-**
-** Idea is to upload images and adjust the pasted HTML before VE processes it.
-*/
-
+/* Preserve VisualEditor's paste pipeline while importing embedded images. */
 ( function () {
     'use strict';
+    const imageHandler = require( 'ext.simplePasteImage.imageHandler' );
+    const clipboardHtml = require( './clipboardHtml.js' );
 
-    const imageHandler = mw.loader.require( 'ext.simplePasteImage.imageHandler' );
-
-    /**
-     * Replace an image element with VE-compatible HTML wrapper
-     * @param {HTMLElement} img The original img element
-     * @param {HTMLElement} doc The document context
-     * @param {string} veHtml The VE HTML wrapper
-     */
-    function replaceImageInDoc( img, doc, veHtml ) {
-        const $img = $( img );
-        // find an ancestor that is a direct child of body
-        const $topAncestor = $img.parents().filter( function() {
-            return this.parentNode === doc.body;
-        } ).first();
-
-        if ( $topAncestor.length ) {
-            $topAncestor.replaceWith( $( veHtml ) );
-        } else if ( img.parentNode === doc.body ) {
-            $img.replaceWith( $( veHtml ) );
-        } else {
-            $( doc.body ).append( $img );
-            $img.replaceWith( $( veHtml ) );
-        }
+    function notifyError( count ) {
+        // The placeholders remain in the document. Do not stack permanent
+        // notices over the editor's Save button after several failed pastes.
+        mw.notify( mw.message( 'simplepasteimage-upload-error', count ).text(), { type: 'error', tag: 'simplepasteimage-error', autoHide: true } );
     }
 
-    // Patch afterPasteAddToFragmentFromExternal to process images in pasted content
-    function installPatch() {
-        if ( !( window.ve && ve.ce && ve.ce.Surface && ve.sanitizeHtmlToDocument && ve.ui && ve.ui.DataTransferItem ) ) {
-            return false;
+    function showProgress( total ) {
+        const label = document.createElement( 'span' );
+        const update = completed => {
+            label.textContent = total ? mw.msg( 'simplepasteimage-progress', completed, total ) : mw.msg( 'simplepasteimage-uploading' );
+        };
+        update( 0 );
+        const notification = mw.notify( label, { tag: 'simplepasteimage', autoHide: false } );
+        return { update, close: () => Promise.resolve( notification ).then( item => item.close() ).catch( () => {} ) };
+    }
+
+    function installHtmlPaste() {
+        const pastePrototype = ve.ce.ClipboardHandler ? ve.ce.ClipboardHandler.prototype : ve.ce.Surface.prototype;
+        const original = pastePrototype.afterPasteAddToFragmentFromExternal;
+        const originalBeforePaste = pastePrototype.beforePaste;
+        // The hook is internal to VE: fail closed on versions with a different API.
+        if ( typeof original !== 'function' || ![ 6, 7 ].includes( original.length ) || typeof originalBeforePaste !== 'function' ) {
+            mw.log.warn( 'SimplePasteImage: unsupported VisualEditor paste API' );
+            return;
         }
 
-        const orig = ve.ce.Surface.prototype.afterPasteAddToFragmentFromExternal;
-
-        ve.ce.Surface.prototype.afterPasteAddToFragmentFromExternal = function ( _clipboardKey, $clipboardHtml, _fragment, _targetFragment, _isMultiline, _forceClipboardData ) {
-            var beforePasteData = this.beforePasteData || {};
-            var wrapperDfd = $.Deferred();
-
-            // run async work in background
-            ( async () => {
-                try {
-                    // Prefer clipboard API HTML if present, otherwise use pasteTarget HTML
-                    let html = beforePasteData.html || ( this.$pasteTarget && this.$pasteTarget.html() ) || '';
-                    if ( !html ) { return; }
-
-                    var doc = ve.sanitizeHtmlToDocument( html );
-                    var $body = $( doc.body );
-
-                    const promises = [];
-                    
-                    // TODO: show errors later
-                    const imageErrors = [];
-
-                    var $images = $body.find( 'img' );
-                    $images.each( ( _i, img ) => {
-                        const src = img.getAttribute( 'src' ) || '';
-                        // Upload from base64 data URI
-                        promises.push( imageHandler.processRemoteImage( src ).then( imageData => {
-                            if ( !imageData ) { 
-                                imageErrors.push( new Error( 'Failed to process remote image: ' + src ) );
-                                return; 
-                            }
-                        
-                            replaceImageInDoc( img, doc, imageData.veHtml );
-                            return;
-                        }));
-                    });
-
-                    await Promise.all( promises );
-                                    
-                    beforePasteData.html = $body[0].innerHTML;
-                } catch ( e ) { }
-    
-
-                // update beforePasteData / pasteTarget / $clipboardHtml
-                this.beforePasteData = beforePasteData;
-                if ( this.$pasteTarget && typeof this.$pasteTarget.html === 'function' ) {
-                    this.$pasteTarget.html( beforePasteData.html || '' );
-                }
-                if ( $clipboardHtml && $clipboardHtml.length && typeof $clipboardHtml.html === 'function' ) {
-                    $clipboardHtml.html( beforePasteData.html || '' );
-                }
-
-                // call original and "propagate" its completion into our Deferred
-                var origResult = orig.apply( this, arguments );
-                if ( origResult && typeof origResult.always === 'function' ) {
-                    origResult.always( function() { wrapperDfd.resolve(); } );
-                } else if ( origResult && typeof origResult.then === 'function' ) {
-                    origResult.then( function() { wrapperDfd.resolve(); }, function() { wrapperDfd.reject(); } );
-                } else {
-                    wrapperDfd.resolve();
-                }
-            } )();
-
-            // return a jQuery promise that has .always
-            return wrapperDfd.promise();
+        pastePrototype.beforePaste = function ( event ) {
+            const clipboard = event.originalEvent && event.originalEvent.clipboardData;
+            const files = clipboard ? Array.from( clipboard.files || [] ) : [];
+            const hasImages = clipboard && typeof clipboard.getData === 'function' && /<img\b/i.test( clipboard.getData( 'text/html' ) );
+            if ( hasImages ) {
+                // Keep fast consecutive rich pastes out of the same undo batch.
+                this.getSurface().getModel().breakpoint();
+            }
+            const result = originalBeforePaste.apply( this, arguments );
+            if ( this.beforePasteData ) {
+                this.beforePasteData.simplePasteImageFiles = files;
+            }
+            return result;
         };
 
-        return true;
-    }
-
-    // Try install immediately, otherwise poll until VE is ready.
-    if ( !installPatch() ) {
-        const timer = setInterval( () => {
-            if ( installPatch() ) {
-                clearInterval( timer );
+        pastePrototype.afterPasteAddToFragmentFromExternal = function () {
+            const args = Array.from( arguments );
+            const beforePasteData = this.beforePasteData || {};
+            const html = beforePasteData.html || ( this.$pasteTarget || this.$element ).html() || '';
+            // Let VE handle internal clipboard slices, plain text and normal paste.
+            if ( !/<img\b/i.test( html ) ) {
+                return original.apply( this, args );
             }
-        }, 100 );
+            // DOMPurify removes blob/file/cid src attributes. Preserve these references
+            // as inert data until the uploader validates them; never relax sanitization.
+            const raw = new DOMParser().parseFromString( html, 'text/html' );
+            raw.querySelectorAll( 'img' ).forEach( img => {
+                img.removeAttribute( 'data-simplepasteimage-source' );
+                const src = img.getAttribute( 'src' ) || '';
+                if ( /^(blob:|file:|cid:)/i.test( src ) ) {
+                    img.setAttribute( 'data-simplepasteimage-source', src );
+                }
+            } );
+            const doc = ve.sanitizeHtmlToDocument( raw.body.innerHTML );
+            // Same origin alone does not identify this wiki (several wikis may share
+            // one host). Verify the actual file URL and resource name before reuse.
+            const images = Array.from( doc.body.querySelectorAll( 'img' ) );
+            if ( !images.length ) {
+                return original.apply( this, args );
+            }
+
+            const deferred = $.Deferred();
+            const cache = new Map();
+            let failures = 0;
+            let completed = 0;
+            const progress = showProgress( images.length );
+            deferred.always( progress.close );
+            const work = clipboardHtml.forEachLimited( images, 4, async img => {
+                const src = img.getAttribute( 'data-simplepasteimage-source' ) || img.getAttribute( 'src' ) || '';
+                img.removeAttribute( 'data-simplepasteimage-source' );
+                try {
+                    if ( !cache.has( src ) ) {
+                        cache.set( src, imageHandler.processRemoteImage( src, beforePasteData.simplePasteImageFiles || [] ) );
+                    }
+                    const data = await cache.get( src );
+                    if ( clipboardHtml.matchesLocalResource( img, data ) ) { return; }
+                    const holder = doc.createElement( 'div' );
+                    holder.innerHTML = data.veHtml;
+                    const replacement = holder.firstElementChild;
+                    clipboardHtml.replaceImage( img, replacement );
+                } catch ( error ) {
+                    failures++;
+                    // Keep an explicit placeholder instead of silently losing the image.
+                    const alt = img.getAttribute( 'alt' );
+                    img.replaceWith( doc.createTextNode( '[' + mw.msg( 'simplepasteimage-image-failed' ) + ( alt ? ': ' + alt : '' ) + ']' ) );
+                } finally {
+                    progress.update( ++completed );
+                    // Cached/repeated images can otherwise monopolize the microtask
+                    // queue on large pastes, preventing the progress UI from painting.
+                    if ( completed % 16 === 0 ) {
+                        await new Promise( resolve => setTimeout( resolve, 0 ) );
+                    }
+                }
+            } );
+            work.then( () => {
+                beforePasteData.html = doc.body.innerHTML;
+                this.beforePasteData = beforePasteData;
+                args[ 1 ] = $( doc.body ).contents();
+                args[ original.length - 1 ] = true; // Use the transformed clipboard HTML, without browser paste context.
+                if ( failures ) {
+                    notifyError( failures );
+                }
+                // Adopt success AND failure so VE always releases its paste state.
+                $.when( original.apply( this, args ) ).then( value => {
+                    this.getSurface().getModel().breakpoint();
+                    return value;
+                } ).then( deferred.resolve, deferred.reject );
+            } ).catch( deferred.reject );
+            return deferred.promise();
+        };
     }
+    installHtmlPaste();
+
+    // Screenshots arrive as File objects, without HTML. Use VE's supported
+    // transfer-handler API rather than synthesizing a second clipboard event.
+    function ImageTransferHandler() {
+        ImageTransferHandler.super.apply( this, arguments );
+    }
+    OO.inheritClass( ImageTransferHandler, ve.ui.DataTransferHandler );
+    ImageTransferHandler.static.name = 'simplePasteImage';
+    ImageTransferHandler.static.kinds = [ 'file' ];
+    ImageTransferHandler.static.types = [ 'image/png', 'image/jpeg', 'image/gif', 'image/webp' ];
+    ImageTransferHandler.prototype.process = function () {
+        const progress = showProgress();
+        this.insertableDataDeferred.always( progress.close );
+        Promise.resolve().then( () => imageHandler.uploadImageFile( this.item.getAsFile() ) )
+            .then( imageHandler.imageData )
+            .then( data => {
+                this.resolve( this.surface.getModel().getDocument().newFromHtml( '<p>' + data.veHtml + '</p>' ) );
+            } ).catch( () => {
+                notifyError( 1 );
+                this.abort();
+            } );
+    };
+    ve.ui.dataTransferHandlerFactory.register( ImageTransferHandler );
 }() );
