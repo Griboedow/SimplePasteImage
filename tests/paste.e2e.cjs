@@ -133,7 +133,10 @@ const fs = require( 'node:fs' );
         for ( let i = 0; i < 1200; i++ ) {
             assert.ok( savedText.includes( 'LARGE-' + String( i ).padStart( 4, '0' ) ), 'Saved paragraph missing: ' + i );
         }
-        assert.ok( await page.locator( '#mw-content-text img' ).evaluateAll( imgs => imgs.every( img => img.complete && img.naturalWidth > 0 ) ) );
+        // Newer Parsoid output lazy-loads offscreen images. Request them before
+        // verifying the whole long page, not only the current viewport.
+        await page.locator( '#mw-content-text img' ).evaluateAll( imgs => imgs.forEach( img => { img.loading = 'eager'; } ) );
+        await page.waitForFunction( () => Array.from( document.querySelectorAll( '#mw-content-text img' ) ).every( img => img.complete && img.naturalWidth > 0 ) );
         const wikitext = await page.evaluate( async title => {
             await mw.loader.using( 'mediawiki.api' );
             const response = await new mw.Api().get( { action: 'query', titles: title, prop: 'revisions', rvprop: 'content', rvslots: 'main', formatversion: 2 } );
@@ -149,6 +152,9 @@ const fs = require( 'node:fs' );
         fs.writeFileSync( artifactDir + '/result.json', JSON.stringify( { version, base, sources: sourceResults.passed, expectedImages, status: 'passed' }, null, 2 ) );
         await page.screenshot( { path: artifactDir + '/saved-page.png', fullPage: false } );
     } catch ( error ) {
+        const artifactDir = process.env.MW_ARTIFACT_DIR || 'tests/artifacts';
+        fs.mkdirSync( artifactDir, { recursive: true } );
+        await page.screenshot( { path: artifactDir + '/failure.png', fullPage: false } ).catch( () => {} );
         console.error( ( await page.locator( 'body' ).innerText() ).slice( -2500 ) );
         console.error( await page.evaluate( () => ( { clipboard: window.spiClipboard && { files: window.spiClipboard.files, htmlLength: window.spiClipboard.html.length },
             imageCount: window.ve?.init?.target?.getSurface()?.getModel().getDocument().getFullData().filter( n => n.type === 'mwInlineImage' ).length } ) ) );
