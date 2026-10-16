@@ -37,7 +37,9 @@ jobs:
           MW_ARTIFACT_DIR: tests/artifacts/${{ matrix.wiki }}
       - name: Server diagnostics
         if: always()
-        run: docker logs simplepasteimage-test > tests/artifacts/server.log 2>&1 || true
+        run: |
+          mkdir -p tests/artifacts
+          docker logs simplepasteimage-test > tests/artifacts/server.log 2>&1 || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
