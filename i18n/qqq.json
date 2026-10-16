@@ -5,5 +5,8 @@
 		]
 	},
 	"simplepasteimage": "Simple Paste Image",
-	"simplepasteimage-desc": "Extension description"
+	"simplepasteimage-desc": "Extension description",
+	"simplepasteimage-uploading": "Progress label while clipboard images are uploaded.",
+	"simplepasteimage-upload-error": "Upload failure notification. $1 is the number of failed images.",
+	"simplepasteimage-image-failed": "Placeholder for an image that could not be uploaded."
 }
