@@ -7,6 +7,7 @@
 	"simplepasteimage": "Simple Paste Image",
 	"simplepasteimage-desc": "Extension description",
 	"simplepasteimage-uploading": "Progress label while clipboard images are uploaded.",
+	"simplepasteimage-progress": "Progress while importing a rich clipboard fragment. $1 is the number of processed image occurrences (successful or failed), $2 is their total count.",
 	"simplepasteimage-upload-error": "Upload failure notification. $1 is the number of failed images.",
 	"simplepasteimage-image-failed": "Placeholder for an image that could not be uploaded."
 }

@@ -2,6 +2,8 @@
 
 Automatically upload images pasted into **MediaWiki VisualEditor**, including screenshots from the clipboard and images embedded in copied HTML. Text, lists and tables surrounding the images are preserved.
 
+Requires **MediaWiki 1.43 or later** and its matching VisualEditor. Version 0.2.0 adds large-document progress, bounded uploads and separate undo steps for consecutive rich pastes.
+
 [MediaWiki extension page](https://www.mediawiki.org/wiki/Extension:SimplePasteImage)
 
 ## Installation
@@ -34,6 +36,8 @@ $wgVisualEditorAllowExternalLinkPaste = true;
 
 The extension preserves surrounding links and explicit pixel image dimensions, but still follows VisualEditor's import rules. HTML image uploads run with at most four concurrent workers; repeated sources share one upload operation per paste.
 
+Large fragments show a processed-image counter while imports run. Individual failures leave a visible placeholder (including alternative text, when present), and successful images and text continue through the normal editor pipeline. Undoing a rich paste is a separate step from the preceding paste.
+
 ## Usage
 
 Open a page in VisualEditor and paste normally:
@@ -55,6 +59,8 @@ Uploaded files receive a page-title prefix and a random suffix. Uploads happen *
 ## Compatibility and limitations
 
 The version matrix and exact development snapshots are recorded in [tests/COMPATIBILITY.md](tests/COMPATIBILITY.md). The extension supports both the older `ve.ce.Surface` paste API and the newer `ve.ce.ClipboardHandler` API. Unsupported API shapes retain normal paste behavior and log a warning.
+
+The [compatibility workflow](.github/workflows/compatibility.yml) runs the real browser clipboard suite against 1.43, 1.44, 1.45, 1.46, REL1_47 and master. It includes a 1200-paragraph fragment with 200 embedded images, undo/redo, internal copy/paste, and saved-page verification. Development branches are tested snapshots, not a guarantee for future upstream changes.
 
 - The browser must expose either an image file, embedded image data, or a reachable HTTP(S) image URL. Word and other native apps vary by platform and clipboard format; a `file://` reference requires matching clipboard file bytes. A local path alone cannot be uploaded by the wiki server.
 - Remote images must be accessible to the wiki server. Browser-only authentication cookies are not forwarded.
