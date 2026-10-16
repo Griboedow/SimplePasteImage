@@ -31,6 +31,11 @@
     pastePrototype.beforePaste = function ( event ) {
         const clipboard = event.originalEvent && event.originalEvent.clipboardData;
         const files = clipboard ? Array.from( clipboard.files || [] ) : [];
+        const hasImages = clipboard && typeof clipboard.getData === 'function' && /<img\b/i.test( clipboard.getData( 'text/html' ) );
+        if ( hasImages ) {
+            // Keep fast consecutive rich pastes out of the same undo batch.
+            this.getSurface().getModel().breakpoint();
+        }
         const result = originalBeforePaste.apply( this, arguments );
         if ( this.beforePasteData ) {
             this.beforePasteData.simplePasteImageFiles = files;
@@ -106,7 +111,10 @@
                 notifyError( failures );
             }
             // Adopt success AND failure so VE always releases its paste state.
-            $.when( original.apply( this, args ) ).then( deferred.resolve, deferred.reject );
+            $.when( original.apply( this, args ) ).then( value => {
+                this.getSurface().getModel().breakpoint();
+                return value;
+            } ).then( deferred.resolve, deferred.reject );
         } ).catch( deferred.reject );
         return deferred.promise();
     };

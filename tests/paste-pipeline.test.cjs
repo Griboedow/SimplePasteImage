@@ -9,7 +9,7 @@ function harness( { modern = false, arity = 6, rejectOriginal = false } = {} ) {
     const window = new JSDOM( '', { url: 'https://wiki.example/index.php' } ).window;
     const $ = require( 'jquery' )( window );
     const calls = [], notifications = [], registered = [];
-    let active = 0, peak = 0, originalCalls = 0, received;
+    let active = 0, peak = 0, originalCalls = 0, received, breakpoints = 0;
     function done( self, args ) {
         originalCalls++;
         received = { args: Array.from( args ), html: self.beforePasteData.html };
@@ -22,6 +22,7 @@ function harness( { modern = false, arity = 6, rejectOriginal = false } = {} ) {
     function Surface() {}
     function ClipboardHandler() {}
     const prototype = ( modern ? ClipboardHandler : Surface ).prototype;
+    prototype.getSurface = () => ( { getModel: () => ( { breakpoint: () => breakpoints++ } ) } );
     prototype.beforePaste = function ( event ) { this.beforePasteData = { html: event.html }; return 'before'; };
     prototype.afterPasteAddToFragmentFromExternal = original;
     function Transfer() {}
@@ -51,9 +52,9 @@ function harness( { modern = false, arity = 6, rejectOriginal = false } = {} ) {
     vm.runInNewContext( fs.readFileSync( require.resolve( '../modules/imagePasteProcessor/imagePasteProcessor.js' ), 'utf8' ), context );
     const instance = Object.create( prototype );
     return { window, calls, notifications, registered, prototype, original,
-        stats: () => ( { peak, originalCalls, received } ),
+        stats: () => ( { peak, originalCalls, received, breakpoints } ),
         async paste( html, files = [] ) {
-            instance.beforePaste( { html, originalEvent: { clipboardData: { files } } } );
+            instance.beforePaste( { html, originalEvent: { clipboardData: { files, getData: () => html } } } );
             const args = arity === 7 ? [ 'key', null, 'plain clipboard', 'fragment', 'target', true ] : [ 'key', null, 'fragment', 'target', true ];
             return instance.afterPasteAddToFragmentFromExternal( ...args );
         }
@@ -77,6 +78,7 @@ for ( const [ version, modern, arity ] of [ [ '1.43 Surface', false, 6 ], [ '1.4
         } );
         assert.ok( Array.from( doc.querySelectorAll( 'img' ) ).every( i => i.width === 20 && i.height === 10 ) );
         assert.equal( stats.originalCalls, 1 );
+        assert.equal( stats.breakpoints, 2 );
         assert.equal( stats.received.args[ arity - 1 ], true );
         assert.equal( stats.received.args[ arity === 7 ? 3 : 2 ], 'fragment' );
         if ( arity === 7 ) { assert.equal( stats.received.args[ 2 ], 'plain clipboard' ); }

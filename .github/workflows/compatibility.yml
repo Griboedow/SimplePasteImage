@@ -25,7 +25,9 @@ jobs:
         run: bash tests/prepare-ci-wiki.sh '${{ matrix.wiki }}'
       - name: Start disposable wiki
         run: |
-          echo "MW_PASSWORD=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+          password="$(openssl rand -hex 24)"
+          echo "::add-mask::$password"
+          echo "MW_PASSWORD=$password" >> "$GITHUB_ENV"
       - run: bash tests/start-wiki.sh
         env:
           MW_SOURCE: ${{ runner.temp }}/spi-wiki
