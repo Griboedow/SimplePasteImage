@@ -1,0 +1,144 @@
+{
+  "results": [
+    {
+      "version": "1.43.11",
+      "base": "http://localhost:8080",
+      "sources": [
+        "native browser selection: paragraph/list/table/base64",
+        "jpeg data URI",
+        "webp data URI",
+        "gif data URI",
+        "percent data URI",
+        "Office-style HTML/base64",
+        "readable blob URL",
+        "file:///tmp/ with matching clipboard file",
+        "cid: with matching clipboard file",
+        "foreign wiki Parsoid image",
+        "wiki read-mode image without Parsoid metadata",
+        "missing-cid preserves text",
+        "revoked-blob preserves text",
+        "invalid-base64 preserves text"
+      ],
+      "expectedImages": 261,
+      "status": "passed"
+    },
+    {
+      "version": "1.44.6",
+      "base": "http://localhost:8080",
+      "sources": [
+        "native browser selection: paragraph/list/table/base64",
+        "jpeg data URI",
+        "webp data URI",
+        "gif data URI",
+        "percent data URI",
+        "Office-style HTML/base64",
+        "readable blob URL",
+        "file:///tmp/ with matching clipboard file",
+        "cid: with matching clipboard file",
+        "foreign wiki Parsoid image",
+        "wiki read-mode image without Parsoid metadata",
+        "missing-cid preserves text",
+        "revoked-blob preserves text",
+        "invalid-base64 preserves text"
+      ],
+      "expectedImages": 261,
+      "status": "passed"
+    },
+    {
+      "version": "1.45.6",
+      "base": "http://localhost:8080",
+      "sources": [
+        "native browser selection: paragraph/list/table/base64",
+        "jpeg data URI",
+        "webp data URI",
+        "gif data URI",
+        "percent data URI",
+        "Office-style HTML/base64",
+        "readable blob URL",
+        "file:///tmp/ with matching clipboard file",
+        "cid: with matching clipboard file",
+        "foreign wiki Parsoid image",
+        "wiki read-mode image without Parsoid metadata",
+        "missing-cid preserves text",
+        "revoked-blob preserves text",
+        "invalid-base64 preserves text"
+      ],
+      "expectedImages": 261,
+      "status": "passed"
+    },
+    {
+      "version": "1.46.2",
+      "base": "http://localhost:8080",
+      "sources": [
+        "native browser selection: paragraph/list/table/base64",
+        "jpeg data URI",
+        "webp data URI",
+        "gif data URI",
+        "percent data URI",
+        "Office-style HTML/base64",
+        "readable blob URL",
+        "file:///tmp/ with matching clipboard file",
+        "cid: with matching clipboard file",
+        "foreign wiki Parsoid image",
+        "wiki read-mode image without Parsoid metadata",
+        "missing-cid preserves text",
+        "revoked-blob preserves text",
+        "invalid-base64 preserves text"
+      ],
+      "expectedImages": 261,
+      "status": "passed"
+    },
+    {
+      "version": "1.48.0-alpha",
+      "base": "http://localhost:8080",
+      "sources": [
+        "native browser selection: paragraph/list/table/base64",
+        "jpeg data URI",
+        "webp data URI",
+        "gif data URI",
+        "percent data URI",
+        "Office-style HTML/base64",
+        "readable blob URL",
+        "file:///tmp/ with matching clipboard file",
+        "cid: with matching clipboard file",
+        "foreign wiki Parsoid image",
+        "wiki read-mode image without Parsoid metadata",
+        "missing-cid preserves text",
+        "revoked-blob preserves text",
+        "invalid-base64 preserves text"
+      ],
+      "expectedImages": 261,
+      "status": "passed"
+    },
+    {
+      "version": "1.47.0-beta",
+      "base": "http://localhost:8080",
+      "sources": [
+        "native browser selection: paragraph/list/table/base64",
+        "jpeg data URI",
+        "webp data URI",
+        "gif data URI",
+        "percent data URI",
+        "Office-style HTML/base64",
+        "readable blob URL",
+        "file:///tmp/ with matching clipboard file",
+        "cid: with matching clipboard file",
+        "foreign wiki Parsoid image",
+        "wiki read-mode image without Parsoid metadata",
+        "missing-cid preserves text",
+        "revoked-blob preserves text",
+        "invalid-base64 preserves text"
+      ],
+      "expectedImages": 261,
+      "status": "passed"
+    }
+  ],
+  "workflowRun": "https://github.com/Griboedow/SimplePasteImage/actions/runs/38981958450",
+  "unitTests": 15,
+  "testedCommit": "bd2a8f5e884ae1b82825971852b446f75ef2a146",
+  "largeDocument": {
+    "images": 200,
+    "paragraphs": 1200
+  },
+  "extensionVersion": "0.2.0"
+}
