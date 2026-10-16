@@ -34,7 +34,9 @@ Open a page in VisualEditor and paste normally:
 - HTML containing images uploads them while retaining surrounding text, lists and tables.
 - PNG, JPEG, GIF and WebP are supported by the automatic uploader.
 - Repeated identical images reuse a live existing file. Other upload warnings are reported instead of bypassed automatically.
-- Existing MediaWiki images with Parsoid `resource` metadata retain their file identity.
+- Existing local MediaWiki images retain their file identity; images copied from another wiki are imported.
+- Readable `blob:` URLs are imported. `file:` and `cid:` references are matched only to a uniquely named image file actually present in the clipboard.
+- Base64 and percent-encoded image data URIs are supported.
 - Failed images in pasted HTML become visible placeholders; the text still pastes and an error is shown.
 - Plain-text pastes retain VisualEditor's normal behavior.
 
@@ -44,9 +46,9 @@ Uploaded files receive a page-title prefix and a random suffix. Uploads happen *
 
 ## Compatibility and limitations
 
-Browser integration tested on **MediaWiki 1.43.11 with its bundled VisualEditor, PHP 8.3.35 and Chromium**. Other MediaWiki/browser combinations need validation. The HTML integration uses an internal VisualEditor paste method; unsupported versions keep normal paste behavior and log a warning.
+The version matrix and exact development snapshots are recorded in [tests/COMPATIBILITY.md](tests/COMPATIBILITY.md). The extension supports both the older `ve.ce.Surface` paste API and the newer `ve.ce.ClipboardHandler` API. Unsupported API shapes retain normal paste behavior and log a warning.
 
-- The browser must expose either an image file, embedded image data, or a reachable HTTP(S) image URL. Word and other native apps vary by platform and clipboard format; their `file://` references cannot be uploaded by the wiki server.
+- The browser must expose either an image file, embedded image data, or a reachable HTTP(S) image URL. Word and other native apps vary by platform and clipboard format; a `file://` reference requires matching clipboard file bytes. A local path alone cannot be uploaded by the wiki server.
 - Remote images must be accessible to the wiki server. Browser-only authentication cookies are not forwarded.
 - URL uploads work best with URLs ending in a supported image extension; extensionless endpoints may fail MediaWiki's file-type validation.
 - SVG and other file types keep the stock VisualEditor file-paste workflow; this extension does not automatically import them.
@@ -71,7 +73,7 @@ The test script uses a bind mount, so extension edits are immediately available.
 docker rm -f simplepasteimage-test
 ```
 
-`MW_IMAGE`, `MW_CONTAINER`, and `MW_PORT` customize the startup script. For the browser tests, set `MW_URL`, `MW_USER`, and `MW_PASSWORD` for the test wiki. Set `CHROMIUM_PATH` to use an existing Chromium installation. The tests expect the English UI.
+`MW_IMAGE`, `MW_CONTAINER`, and `MW_PORT` customize the startup script. For the browser tests, set `MW_URL`, `MW_USER`, and `MW_PASSWORD` for the test wiki. Set `CHROMIUM_PATH` to use an existing Chromium installation. The tests expect the English UI. `MW_ARTIFACT_DIR` selects a separate result/screenshot directory per version. `MW_SOURCE` mounts a prepared MediaWiki source tree (with its matching VisualEditor, skin and Composer dependencies) instead of the image’s bundled wiki; use a disposable tree with files readable by the web-server user.
 
 Optional external-image coverage (requires working outbound HTTPS from the wiki server):
 
@@ -79,6 +81,6 @@ Optional external-image coverage (requires working outbound HTTPS from the wiki 
 MW_REMOTE_IMAGE='https://upload.wikimedia.org/wikipedia/commons/7/70/Example.png' npm run test:e2e
 ```
 
-The browser test uses the native clipboard and Ctrl+V. It verifies mixed HTML/table paste, duplicate reuse, PNG screenshot paste, error recovery, plain text, internal VisualEditor image copy/paste, and saved wikitext/images after a reload. A screenshot is written to `tests/artifacts/saved-page.png`.
+The browser test uses the native clipboard and Ctrl+V. It verifies mixed HTML/table paste, duplicate reuse, PNG screenshot paste, error recovery, plain text, internal VisualEditor image copy/paste, browser selections, data/blob/file/cid formats, foreign-wiki images, and saved wikitext/images after a reload. A screenshot is written to `tests/artifacts/saved-page.png`.
 
 For environments with an outbound proxy, configure MediaWiki's `$wgHTTPProxy` and the container's CA trust as required by that environment. Keep TLS verification enabled.

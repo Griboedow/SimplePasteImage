@@ -7,26 +7,56 @@
         mw.notify( mw.message( 'simplepasteimage-upload-error', count ).text(), { type: 'error', autoHide: false } );
     }
 
-    const original = ve.ce.Surface.prototype.afterPasteAddToFragmentFromExternal;
+    const pastePrototype = ve.ce.ClipboardHandler ? ve.ce.ClipboardHandler.prototype : ve.ce.Surface.prototype;
+    const original = pastePrototype.afterPasteAddToFragmentFromExternal;
     // The hook is internal to VE: fail closed on versions with a different API.
     if ( typeof original !== 'function' ) {
         mw.log.warn( 'SimplePasteImage: unsupported VisualEditor paste API' );
         return;
     }
 
-    ve.ce.Surface.prototype.afterPasteAddToFragmentFromExternal = function () {
+    const originalBeforePaste = pastePrototype.beforePaste;
+    pastePrototype.beforePaste = function ( event ) {
+        const clipboard = event.originalEvent && event.originalEvent.clipboardData;
+        const files = clipboard ? Array.from( clipboard.files || [] ) : [];
+        const result = originalBeforePaste.apply( this, arguments );
+        if ( this.beforePasteData ) {
+            this.beforePasteData.simplePasteImageFiles = files;
+        }
+        return result;
+    };
+
+    pastePrototype.afterPasteAddToFragmentFromExternal = function () {
         const args = Array.from( arguments );
         const beforePasteData = this.beforePasteData || {};
-        const html = beforePasteData.html || this.$pasteTarget.html() || '';
+        const html = beforePasteData.html || ( this.$pasteTarget || this.$element ).html() || '';
         // Let VE handle internal clipboard slices, plain text and normal paste.
         if ( !/<img\b/i.test( html ) ) {
             return original.apply( this, args );
         }
-        const doc = ve.sanitizeHtmlToDocument( html );
-        const images = Array.from( doc.body.querySelectorAll( 'img' ) ).filter( img =>
-            // Existing Parsoid images should retain their file identity and caption.
-            !img.hasAttribute( 'resource' )
-        );
+        // DOMPurify removes blob/file/cid src attributes. Preserve these references
+        // as inert data until the uploader validates them; never relax sanitization.
+        const raw = new DOMParser().parseFromString( html, 'text/html' );
+        raw.querySelectorAll( 'img' ).forEach( img => {
+            img.removeAttribute( 'data-simplepasteimage-source' );
+            const src = img.getAttribute( 'src' ) || '';
+            if ( /^(blob:|file:|cid:)/i.test( src ) ) {
+                img.setAttribute( 'data-simplepasteimage-source', src );
+            }
+        } );
+        const doc = ve.sanitizeHtmlToDocument( raw.body.innerHTML );
+        const images = Array.from( doc.body.querySelectorAll( 'img' ) ).filter( img => {
+            // Only local Parsoid images can retain their resource identity.
+            // An image copied from another wiki still needs to be imported.
+            if ( img.hasAttribute( 'resource' ) ) {
+                try {
+                    return new URL( img.getAttribute( 'src' ), document.baseURI ).origin !== new URL( document.baseURI ).origin;
+                } catch ( error ) {
+                    return true;
+                }
+            }
+            return true;
+        } );
         if ( !images.length ) {
             return original.apply( this, args );
         }
@@ -37,10 +67,11 @@
         const progress = mw.notify( mw.msg( 'simplepasteimage-uploading' ), { tag: 'simplepasteimage', autoHide: false } );
         deferred.always( () => progress.then( notification => notification.close() ) );
         const work = images.map( async img => {
-            const src = img.getAttribute( 'src' ) || '';
+            const src = img.getAttribute( 'data-simplepasteimage-source' ) || img.getAttribute( 'src' ) || '';
+            img.removeAttribute( 'data-simplepasteimage-source' );
             try {
                 if ( !cache.has( src ) ) {
-                    cache.set( src, imageHandler.processRemoteImage( src ) );
+                    cache.set( src, imageHandler.processRemoteImage( src, beforePasteData.simplePasteImageFiles || [] ) );
                 }
                 const data = await cache.get( src );
                 const holder = doc.createElement( 'div' );
@@ -67,7 +98,7 @@
             beforePasteData.html = doc.body.innerHTML;
             this.beforePasteData = beforePasteData;
             args[ 1 ] = $( doc.body ).contents();
-            args[ 5 ] = true; // Use the transformed clipboard HTML, without browser paste context.
+            args[ original.length - 1 ] = true; // Use the transformed clipboard HTML, without browser paste context.
             if ( failures ) {
                 notifyError( failures );
             }

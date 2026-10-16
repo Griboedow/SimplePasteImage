@@ -45,3 +45,12 @@ test( 'unsupported schemes and non-image data never reach the upload API', async
     await assert.rejects( api.uploadImageFromDataUri( 'data:text/html;base64,SGVsbG8=' ), /unsupported-image-type/ );
     assert.equal( calls, 0 );
 } );
+
+test( 'file/cid references require a unique matching filename, never an arbitrary screenshot', () => {
+    const api = handler( () => {} );
+    const file = { name: 'image 1.png' };
+    assert.equal( api.matchClipboardFile( 'file:///tmp/image%201.png', [ file ] ), file );
+    assert.equal( api.matchClipboardFile( 'cid:image%201.png', [ file ] ), file );
+    assert.equal( api.matchClipboardFile( 'cid:missing.png', [ file ] ), null );
+    assert.equal( api.matchClipboardFile( 'cid:image%201.png', [ file, file ] ), null );
+} );

@@ -1,0 +1,150 @@
+{
+  "date": "2026-10-16",
+  "browser": "Chromium 154.0.8037.57",
+  "php": "8.3.35",
+  "database": "SQLite",
+  "unitTestsPassed": 5,
+  "runs": [
+    {
+      "version": "1.43.11",
+      "sources": [
+        "native browser selection: paragraph/list/table/base64",
+        "jpeg data URI",
+        "webp data URI",
+        "gif data URI",
+        "percent data URI",
+        "Office-style HTML/base64",
+        "readable blob URL",
+        "file:///tmp/ with matching clipboard file",
+        "cid: with matching clipboard file",
+        "foreign wiki Parsoid image",
+        "wiki read-mode image without Parsoid metadata",
+        "missing-cid preserves text",
+        "revoked-blob preserves text",
+        "invalid-base64 preserves text"
+      ],
+      "expectedImages": 19,
+      "status": "passed",
+      "branch": "REL1_43",
+      "browserScenariosPassed": 22,
+      "image": "sha256:3e1cc838efd0c04b462fcd36bca2759a948e617014392cf7dd2840c5eb73c999"
+    },
+    {
+      "version": "1.44.6",
+      "sources": [
+        "native browser selection: paragraph/list/table/base64",
+        "jpeg data URI",
+        "webp data URI",
+        "gif data URI",
+        "percent data URI",
+        "Office-style HTML/base64",
+        "readable blob URL",
+        "file:///tmp/ with matching clipboard file",
+        "cid: with matching clipboard file",
+        "foreign wiki Parsoid image",
+        "wiki read-mode image without Parsoid metadata",
+        "missing-cid preserves text",
+        "revoked-blob preserves text",
+        "invalid-base64 preserves text"
+      ],
+      "expectedImages": 19,
+      "status": "passed",
+      "branch": "REL1_44",
+      "browserScenariosPassed": 22
+    },
+    {
+      "version": "1.45.6",
+      "sources": [
+        "native browser selection: paragraph/list/table/base64",
+        "jpeg data URI",
+        "webp data URI",
+        "gif data URI",
+        "percent data URI",
+        "Office-style HTML/base64",
+        "readable blob URL",
+        "file:///tmp/ with matching clipboard file",
+        "cid: with matching clipboard file",
+        "foreign wiki Parsoid image",
+        "wiki read-mode image without Parsoid metadata",
+        "missing-cid preserves text",
+        "revoked-blob preserves text",
+        "invalid-base64 preserves text"
+      ],
+      "expectedImages": 19,
+      "status": "passed",
+      "branch": "REL1_45",
+      "browserScenariosPassed": 22,
+      "image": "sha256:5a397413d38a1731a2c7b9645faa100cc227f5b5ba7857a172ff70cd270246f9"
+    },
+    {
+      "version": "1.46.2",
+      "sources": [
+        "native browser selection: paragraph/list/table/base64",
+        "jpeg data URI",
+        "webp data URI",
+        "gif data URI",
+        "percent data URI",
+        "Office-style HTML/base64",
+        "readable blob URL",
+        "file:///tmp/ with matching clipboard file",
+        "cid: with matching clipboard file",
+        "foreign wiki Parsoid image",
+        "wiki read-mode image without Parsoid metadata",
+        "missing-cid preserves text",
+        "revoked-blob preserves text",
+        "invalid-base64 preserves text"
+      ],
+      "expectedImages": 19,
+      "status": "passed",
+      "branch": "REL1_46",
+      "browserScenariosPassed": 22,
+      "image": "sha256:4bd9102ab90fa648a680969b50c9e729a1da2977f71c1cd2313ec777546effe5"
+    },
+    {
+      "version": "1.47.0-beta",
+      "sources": [
+        "native browser selection: paragraph/list/table/base64",
+        "jpeg data URI",
+        "webp data URI",
+        "gif data URI",
+        "percent data URI",
+        "Office-style HTML/base64",
+        "readable blob URL",
+        "file:///tmp/ with matching clipboard file",
+        "cid: with matching clipboard file",
+        "foreign wiki Parsoid image",
+        "wiki read-mode image without Parsoid metadata",
+        "missing-cid preserves text",
+        "revoked-blob preserves text",
+        "invalid-base64 preserves text"
+      ],
+      "expectedImages": 19,
+      "status": "passed",
+      "branch": "REL1_47",
+      "browserScenariosPassed": 22
+    },
+    {
+      "version": "1.48.0-alpha",
+      "sources": [
+        "native browser selection: paragraph/list/table/base64",
+        "jpeg data URI",
+        "webp data URI",
+        "gif data URI",
+        "percent data URI",
+        "Office-style HTML/base64",
+        "readable blob URL",
+        "file:///tmp/ with matching clipboard file",
+        "cid: with matching clipboard file",
+        "foreign wiki Parsoid image",
+        "wiki read-mode image without Parsoid metadata",
+        "missing-cid preserves text",
+        "revoked-blob preserves text",
+        "invalid-base64 preserves text"
+      ],
+      "expectedImages": 19,
+      "status": "passed",
+      "branch": "master",
+      "browserScenariosPassed": 22
+    }
+  ]
+}

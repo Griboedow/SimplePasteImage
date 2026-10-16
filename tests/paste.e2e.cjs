@@ -30,6 +30,7 @@ const fs = require( 'node:fs' );
             await start.click();
         }
         await page.evaluate( () => Promise.resolve( ve.init.target.welcomeDialogPromise ).catch( () => {} ) );
+        await page.evaluate( () => document.addEventListener( 'paste', e => { window.spiClipboard = { html: e.clipboardData.getData( 'text/html' ), files: Array.from( e.clipboardData.files ).map( f => f.name ) }; }, true ) );
         const dataUrl = await page.evaluate( () => {
             const canvas = document.createElement( 'canvas' );
             canvas.width = 40; canvas.height = 30;
@@ -39,9 +40,9 @@ const fs = require( 'node:fs' );
         } );
         const data = () => page.evaluate( () => ve.init.target.getSurface().getModel().getDocument().getFullData() );
         const imageCount = count => page.waitForFunction( count => ve.init.target.getSurface().getModel().getDocument().getFullData().filter( n => n.type === 'mwInlineImage' ).length === count, count );
-        const textIncludes = text => page.waitForFunction( text => ve.init.target.getSurface().getModel().getDocument().getFullData().filter( n => typeof n === 'string' ).join( '' ).includes( text ), text );
+        const textIncludes = text => page.waitForFunction( text => ve.init.target.getSurface().getModel().getDocument().getFullData().map( n => typeof n === 'string' ? n : Array.isArray( n ) ? n[ 0 ] : '' ).join( '' ).includes( text ), text );
         async function paste( html ) {
-            await page.waitForFunction( () => !ve.init.target.getSurface().getView().pasting );
+            await page.waitForFunction( () => !( ve.init.target.getSurface().getView().clipboardHandler || ve.init.target.getSurface().getView() ).pasting );
             await page.evaluate( async html => {
                 await navigator.clipboard.write( [ new ClipboardItem( {
                     'text/html': new Blob( [ html ], { type: 'text/html' } ),
@@ -56,7 +57,7 @@ const fs = require( 'node:fs' );
         await imageCount( 3 );
         let result = await data();
         assert.ok( result.some( n => n.type === 'mwTable' ) );
-        assert.ok( result.filter( n => typeof n === 'string' ).join( '' ).includes( 'BEFORE  BETWEEN  AFTERCELL  END' ) );
+        assert.ok( result.map( n => typeof n === 'string' ? n : Array.isArray( n ) ? n[ 0 ] : '' ).join( '' ).includes( 'BEFORE  BETWEEN  AFTERCELL  END' ) );
         console.log( 'PASS: mixed HTML preserves paragraph, table and three images' );
 
         await paste( `<p>SECOND <img src="${dataUrl}"> END</p>` );
@@ -65,7 +66,7 @@ const fs = require( 'node:fs' );
         assert.equal( new Set( result.filter( n => n.type === 'mwInlineImage' ).map( n => n.attributes.resource ) ).size, 1 );
         console.log( 'PASS: duplicate image reuses existing file' );
 
-        await page.waitForFunction( () => !ve.init.target.getSurface().getView().pasting );
+        await page.waitForFunction( () => !( ve.init.target.getSurface().getView().clipboardHandler || ve.init.target.getSurface().getView() ).pasting );
         await page.evaluate( async src => {
             const blob = await ( await fetch( src ) ).blob();
             await navigator.clipboard.write( [ new ClipboardItem( { 'image/png': blob } ) ] );
@@ -77,10 +78,10 @@ const fs = require( 'node:fs' );
 
         await paste( '<p>KEEP <img src="file:///missing.png"> TEXT</p>' );
         await textIncludes( 'KEEP [Image upload failed] TEXT' );
-        await page.getByText( /Could not upload 1 image/ ).waitFor();
+        await page.locator( '.mw-notification-content' ).filter( { hasText: /Could not upload 1 image/ } ).last().waitFor();
         console.log( 'PASS: failed upload reports error and preserves text' );
 
-        await page.waitForFunction( () => !ve.init.target.getSurface().getView().pasting );
+        await page.waitForFunction( () => !( ve.init.target.getSurface().getView().clipboardHandler || ve.init.target.getSurface().getView() ).pasting );
         await page.evaluate( async () => {
             await navigator.clipboard.writeText( 'PLAIN-TEXT' );
             ve.init.target.getSurface().getView().focus();
@@ -102,7 +103,10 @@ const fs = require( 'node:fs' );
             console.log( 'PASS: HTTP image uploaded by the wiki server' );
         }
 
-        await page.waitForFunction( () => !ve.init.target.getSurface().getView().pasting );
+        const sourceResults = await require( './clipboard-sources.cjs' )( { page, context, dataUrl, paste, imageCount, textIncludes, data, count: expectedImages } );
+        expectedImages = sourceResults.expectedImages;
+
+        await page.waitForFunction( () => !( ve.init.target.getSurface().getView().clipboardHandler || ve.init.target.getSurface().getView() ).pasting );
         await page.evaluate( () => {
             const surface = ve.init.target.getSurface();
             const offset = surface.getModel().getDocument().getFullData().findIndex( n => n.type === 'mwInlineImage' );
@@ -136,10 +140,14 @@ const fs = require( 'node:fs' );
         assert.ok( !wikitext.includes( '|link=http' ), 'Images must not link to raw image URLs' );
         console.log( 'PASS: saved wikitext and reloaded page retain all images' );
         assert.deepEqual( errors, [] );
-        fs.mkdirSync( 'tests/artifacts', { recursive: true } );
-        await page.screenshot( { path: 'tests/artifacts/saved-page.png', fullPage: true } );
+        const artifactDir = process.env.MW_ARTIFACT_DIR || 'tests/artifacts';
+        fs.mkdirSync( artifactDir, { recursive: true } );
+        const version = await page.evaluate( () => mw.config.get( 'wgVersion' ) );
+        fs.writeFileSync( artifactDir + '/result.json', JSON.stringify( { version, base, sources: sourceResults.passed, expectedImages, status: 'passed' }, null, 2 ) );
+        await page.screenshot( { path: artifactDir + '/saved-page.png', fullPage: true } );
     } catch ( error ) {
         console.error( ( await page.locator( 'body' ).innerText() ).slice( -2500 ) );
+        console.error( await page.evaluate( () => window.spiClipboard ) );
         throw error;
     } finally {
         await browser.close();

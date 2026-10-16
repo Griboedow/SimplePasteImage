@@ -43,7 +43,7 @@
     }
 
     function uploadImageFile( blob ) {
-        const ext = extensions[ blob.type ];
+        const ext = blob && extensions[ blob.type.split( ';' )[ 0 ].toLowerCase() ];
         if ( !ext ) {
             return Promise.reject( new Error( 'unsupported-image-type' ) );
         }
@@ -67,7 +67,7 @@
     }
 
     async function uploadImageFromDataUri( src ) {
-        if ( !/^data:image\/(png|jpeg|gif|webp);base64,/i.test( src ) ) {
+        if ( !/^data:image\/(png|jpeg|gif|webp)(?:;[^,]*)?,/i.test( src ) ) {
             throw new Error( 'unsupported-image-type' );
         }
         const response = await fetch( src );
@@ -109,13 +109,58 @@
         return { filename, fileHref: info.url, veHtml: buildVeImageWrapper( info.url, filename, info ) };
     }
 
-    async function processRemoteImage( src ) {
-        const filename = await ( src.startsWith( 'data:' ) ? uploadImageFromDataUri( src ) : uploadImageByUrl( src ) );
+    function matchClipboardFile( src, files ) {
+        if ( !/^(file:|cid:)/i.test( src ) ) {
+            return null;
+        }
+        let name;
+        try {
+            name = decodeURIComponent( src.replace( /^cid:/i, '' ).split( /[\\/]/ ).pop() );
+        } catch ( error ) {
+            return null;
+        }
+        const matches = files.filter( file => file.name === name );
+        // Never guess by position: Office may provide a screenshot of the entire
+        // selection as a fallback, not the bytes of an individual embedded image.
+        return matches.length === 1 ? matches[ 0 ] : null;
+    }
+
+    async function processRemoteImage( src, files = [] ) {
+        const sourceUrl = new URL( src, document.baseURI );
+        if ( /^https?:$/.test( sourceUrl.protocol ) && sourceUrl.origin === new URL( document.baseURI ).origin ) {
+            const parts = sourceUrl.pathname.split( '/' );
+            const candidate = decodeURIComponent( parts[ parts.length - ( parts.includes( 'thumb' ) ? 2 : 1 ) ] );
+            try {
+                const info = await getImageInfo( candidate );
+                const originalUrl = new URL( info.url );
+                const uploadPath = mw.config.get( 'wgUploadPath' );
+                const thumbPrefix = uploadPath && originalUrl.pathname.replace( uploadPath + '/', uploadPath + '/thumb/' ) + '/';
+                if ( sourceUrl.href === info.url || ( thumbPrefix && sourceUrl.pathname.startsWith( thumbPrefix ) ) ) {
+                    return { filename: candidate, fileHref: info.url, veHtml: buildVeImageWrapper( info.url, candidate, info ) };
+                }
+            } catch ( error ) {
+                // Not an existing local file: continue with the normal upload path.
+            }
+        }
+        const file = matchClipboardFile( src, files );
+        let filename;
+        if ( file ) {
+            filename = await uploadImageFile( file );
+        } else if ( /^data:/i.test( src ) ) {
+            filename = await uploadImageFromDataUri( src );
+        } else if ( /^blob:/i.test( src ) ) {
+            // Only readable blob URLs work. Cross-origin or revoked blob URLs
+            // need actual clipboard file bytes; never send blob URLs to the server.
+            const response = await fetch( src );
+            filename = await uploadImageFile( await response.blob() );
+        } else {
+            filename = await uploadImageByUrl( src );
+        }
         return imageData( filename );
     }
 
     module.exports = {
         generateUuid, parseUploadWarnings, uploadImageByUrl, uploadImageFromDataUri,
-        uploadImageFile, getImageInfo, buildVeImageWrapper, processRemoteImage, imageData
+        uploadImageFile, matchClipboardFile, getImageInfo, buildVeImageWrapper, processRemoteImage, imageData
     };
 }() );
