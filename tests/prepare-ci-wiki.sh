@@ -15,8 +15,9 @@ elif [[ "$version" == REL1_47 || "$version" == master ]]; then
   git -C "$target/extensions/VisualEditor" submodule update --init --depth 1
   git clone --depth 1 --branch "$version" https://github.com/wikimedia/mediawiki-skins-Vector.git "$target/skins/Vector"
   curl --fail --retry 3 -L https://getcomposer.org/composer-stable.phar -o "$RUNNER_TEMP/composer.phar"
-  docker run --rm --entrypoint php -v "$target:/var/www/html" -v "$RUNNER_TEMP/composer.phar:/tmp/composer.phar:ro" \
-    -e COMPOSER_ALLOW_SUPERUSER=1 mediawiki:1.46 /tmp/composer.phar install --no-dev --no-interaction --prefer-dist
+  docker run --rm --entrypoint sh -v "$target:/var/www/html" -v "$RUNNER_TEMP/composer.phar:/tmp/composer.phar:ro" \
+    -e COMPOSER_ALLOW_SUPERUSER=1 mediawiki:1.46 -c \
+    'apt-get update -qq && apt-get install -y --no-install-recommends unzip && git config --global --add safe.directory /var/www/html && php /tmp/composer.phar install --no-dev --no-interaction --prefer-dist'
 else
   echo "Unsupported test target: $version" >&2
   exit 1
