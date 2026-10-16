@@ -31,5 +31,20 @@ module.exports = async function ( { page, dataUrl, paste, imageCount, data, coun
     await page.keyboard.press( 'Control+Y' );
     await imageCount( count + 40 );
     console.log( 'PASS: linked siblings, pixel dimensions, merged table, 40-image order and undo/redo' );
-    return count + 40;
+    count += 40;
+    await page.keyboard.press( 'Control+End' );
+    const started = Date.now();
+    await paste( '<h2>LARGE DOCUMENT</h2>' + Array.from( { length: 1200 }, ( _, i ) =>
+        `<p>LARGE-${String( i ).padStart( 4, '0' )} café 中文 😀 <b>bold</b> <i>italic</i> ${i % 6 === 0 ? `<img src="${dataUrl}" width="20" height="15">` : ''} END-${i}</p>` ).join( '' ) );
+    await imageCount( count + 200 );
+    const largeData = await data();
+    const largeText = largeData.map( n => typeof n === 'string' ? n : Array.isArray( n ) ? n[ 0 ] : '' ).join( '' );
+    let previous = -1;
+    for ( let i = 0; i < 1200; i++ ) {
+        const position = largeText.indexOf( 'LARGE-' + String( i ).padStart( 4, '0' ) );
+        assert.ok( position > previous, 'Paragraph ' + i + ' missing or reordered' );
+        previous = position;
+    }
+    console.log( 'PASS: 1200 paragraphs and 200 embedded images in ' + ( Date.now() - started ) + 'ms' );
+    return count + 200;
 };

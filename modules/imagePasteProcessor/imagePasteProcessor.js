@@ -8,15 +8,26 @@
         mw.notify( mw.message( 'simplepasteimage-upload-error', count ).text(), { type: 'error', autoHide: false } );
     }
 
+    function showProgress( total ) {
+        const label = document.createElement( 'span' );
+        const update = completed => {
+            label.textContent = total ? mw.msg( 'simplepasteimage-progress', completed, total ) : mw.msg( 'simplepasteimage-uploading' );
+        };
+        update( 0 );
+        const notification = mw.notify( label, { tag: 'simplepasteimage', autoHide: false } );
+        return { update, close: () => Promise.resolve( notification ).then( item => item.close() ).catch( () => {} ) };
+    }
+
+    function installHtmlPaste() {
     const pastePrototype = ve.ce.ClipboardHandler ? ve.ce.ClipboardHandler.prototype : ve.ce.Surface.prototype;
     const original = pastePrototype.afterPasteAddToFragmentFromExternal;
+    const originalBeforePaste = pastePrototype.beforePaste;
     // The hook is internal to VE: fail closed on versions with a different API.
-    if ( typeof original !== 'function' ) {
+    if ( typeof original !== 'function' || ![ 6, 7 ].includes( original.length ) || typeof originalBeforePaste !== 'function' ) {
         mw.log.warn( 'SimplePasteImage: unsupported VisualEditor paste API' );
         return;
     }
 
-    const originalBeforePaste = pastePrototype.beforePaste;
     pastePrototype.beforePaste = function ( event ) {
         const clipboard = event.originalEvent && event.originalEvent.clipboardData;
         const files = clipboard ? Array.from( clipboard.files || [] ) : [];
@@ -56,8 +67,9 @@
         const deferred = $.Deferred();
         const cache = new Map();
         let failures = 0;
-        const progress = mw.notify( mw.msg( 'simplepasteimage-uploading' ), { tag: 'simplepasteimage', autoHide: false } );
-        deferred.always( () => progress.then( notification => notification.close() ) );
+        let completed = 0;
+        const progress = showProgress( images.length );
+        deferred.always( progress.close );
         const work = clipboardHtml.forEachLimited( images, 4, async img => {
             const src = img.getAttribute( 'data-simplepasteimage-source' ) || img.getAttribute( 'src' ) || '';
             img.removeAttribute( 'data-simplepasteimage-source' );
@@ -76,6 +88,13 @@
                 // Keep an explicit placeholder instead of silently losing the image.
                 const alt = img.getAttribute( 'alt' );
                 img.replaceWith( doc.createTextNode( '[' + mw.msg( 'simplepasteimage-image-failed' ) + ( alt ? ': ' + alt : '' ) + ']' ) );
+            } finally {
+                progress.update( ++completed );
+                // Cached/repeated images can otherwise monopolize the microtask
+                // queue on large pastes, preventing the progress UI from painting.
+                if ( completed % 16 === 0 ) {
+                    await new Promise( resolve => setTimeout( resolve, 0 ) );
+                }
             }
         } );
         work.then( () => {
@@ -91,6 +110,8 @@
         } ).catch( deferred.reject );
         return deferred.promise();
     };
+    }
+    installHtmlPaste();
 
     // Screenshots arrive as File objects, without HTML. Use VE's supported
     // transfer-handler API rather than synthesizing a second clipboard event.
@@ -102,8 +123,8 @@
     ImageTransferHandler.static.kinds = [ 'file' ];
     ImageTransferHandler.static.types = [ 'image/png', 'image/jpeg', 'image/gif', 'image/webp' ];
     ImageTransferHandler.prototype.process = function () {
-        const progress = mw.notify( mw.msg( 'simplepasteimage-uploading' ), { autoHide: false } );
-        this.insertableDataDeferred.always( () => progress.then( notification => notification.close() ) );
+        const progress = showProgress();
+        this.insertableDataDeferred.always( progress.close );
         Promise.resolve().then( () => imageHandler.uploadImageFile( this.item.getAsFile() ) )
             .then( imageHandler.imageData )
             .then( data => {

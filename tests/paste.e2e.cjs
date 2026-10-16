@@ -15,7 +15,7 @@ const fs = require( 'node:fs' );
     const page = await context.newPage();
     const errors = [];
     page.on( 'pageerror', error => errors.push( error.message ) );
-    page.setDefaultTimeout( 30000 );
+    page.setDefaultTimeout( 120000 );
     try {
         await page.goto( base + '/index.php?title=Special:UserLogin' );
         await page.locator( '#wpName1' ).fill( process.env.MW_USER || 'Admin' );
@@ -124,13 +124,15 @@ const fs = require( 'node:fs' );
         console.log( 'PASS: internal VisualEditor image copy/paste' );
 
         await page.getByRole( 'button', { name: /^Save(?: page)?…$/ } ).click();
-        await Promise.all( [
-            page.waitForNavigation( { waitUntil: 'load' } ),
-            page.getByRole( 'button', { name: 'Save page', exact: true } ).click()
-        ] );
+        await page.getByRole( 'button', { name: 'Save page', exact: true } ).click();
+        await page.waitForFunction( () => !window.ve?.init?.target?.active );
         await page.reload();
         assert.equal( await page.locator( '#mw-content-text img' ).count(), expectedImages );
         assert.ok( ( await page.locator( '#mw-content-text' ).innerText() ).includes( 'BEFORE  BETWEEN  AFTER' ) );
+        const savedText = await page.locator( '#mw-content-text' ).innerText();
+        for ( let i = 0; i < 1200; i++ ) {
+            assert.ok( savedText.includes( 'LARGE-' + String( i ).padStart( 4, '0' ) ), 'Saved paragraph missing: ' + i );
+        }
         assert.ok( await page.locator( '#mw-content-text img' ).evaluateAll( imgs => imgs.every( img => img.complete && img.naturalWidth > 0 ) ) );
         const wikitext = await page.evaluate( async title => {
             await mw.loader.using( 'mediawiki.api' );

@@ -20,11 +20,13 @@ docker exec "$spi_container" chown -R www-data:www-data /var/www/data /var/www/h
 docker exec -i "$spi_container" sh -c 'cat >> LocalSettings.php' <<'PHP'
 $wgEnableUploads = true;
 $wgVisualEditorAllowExternalLinkPaste = true;
+$wgFileExtensions[] = 'webp';
 $wgAllowCopyUploads = true;
 $wgGroupPermissions['user']['upload_by_url'] = true;
 wfLoadExtension( 'VisualEditor' );
 wfLoadExtension( 'SimplePasteImage' );
 $wgDefaultUserOptions['visualeditor-enable'] = 1;
+$wgDefaultSkin = 'vector';
 $wgVirtualRestConfig['modules']['parsoid'] = [ 'url' => 'http://localhost/rest.php', 'domain' => 'localhost' ];
 $wgShowExceptionDetails = true;
 PHP

@@ -7,6 +7,7 @@
 	"simplepasteimage": "Simple Paste Image",
 	"simplepasteimage-desc": "The extension allows users to auto-upload images when they paste text to VisualEditor. Unique image names are constructed from a page name and a random suffix.",
 	"simplepasteimage-uploading": "Uploading pasted images…",
+	"simplepasteimage-progress": "Preparing images: $1 of $2…",
 	"simplepasteimage-upload-error": "Could not upload $1 {{PLURAL:$1|image|images}}. Check your upload permissions, the file type and whether uploading by URL is enabled. The surrounding text has been preserved.",
 	"simplepasteimage-image-failed": "Image upload failed"
 }
