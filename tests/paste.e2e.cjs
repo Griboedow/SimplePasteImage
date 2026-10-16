@@ -125,7 +125,7 @@ const fs = require( 'node:fs' );
 
         await page.getByRole( 'button', { name: /^Save(?: page)?…$/ } ).click();
         await page.getByRole( 'button', { name: 'Save page', exact: true } ).click();
-        await page.waitForFunction( () => !window.ve?.init?.target?.active );
+        await page.waitForURL( url => !url.searchParams.has( 'veaction' ), { waitUntil: 'networkidle' } );
         await page.reload();
         assert.equal( await page.locator( '#mw-content-text img' ).count(), expectedImages );
         assert.ok( ( await page.locator( '#mw-content-text' ).innerText() ).includes( 'BEFORE  BETWEEN  AFTER' ) );
@@ -147,10 +147,11 @@ const fs = require( 'node:fs' );
         fs.mkdirSync( artifactDir, { recursive: true } );
         const version = await page.evaluate( () => mw.config.get( 'wgVersion' ) );
         fs.writeFileSync( artifactDir + '/result.json', JSON.stringify( { version, base, sources: sourceResults.passed, expectedImages, status: 'passed' }, null, 2 ) );
-        await page.screenshot( { path: artifactDir + '/saved-page.png', fullPage: true } );
+        await page.screenshot( { path: artifactDir + '/saved-page.png', fullPage: false } );
     } catch ( error ) {
         console.error( ( await page.locator( 'body' ).innerText() ).slice( -2500 ) );
-        console.error( await page.evaluate( () => window.spiClipboard ) );
+        console.error( await page.evaluate( () => ( { clipboard: window.spiClipboard && { files: window.spiClipboard.files, htmlLength: window.spiClipboard.html.length },
+            imageCount: window.ve?.init?.target?.getSurface()?.getModel().getDocument().getFullData().filter( n => n.type === 'mwInlineImage' ).length } ) ) );
         throw error;
     } finally {
         await browser.close();

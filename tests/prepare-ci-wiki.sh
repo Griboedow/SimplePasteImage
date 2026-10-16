@@ -23,6 +23,6 @@ else
   exit 1
 fi
 # Docker's web user needs write access to uploads and its local configuration.
-chmod -R a+rX "$target"
+sudo chmod -R a+rX "$target"
 mkdir -p "$target/images" "$target/cache"
 chmod a+rwx "$target/images" "$target/cache"
