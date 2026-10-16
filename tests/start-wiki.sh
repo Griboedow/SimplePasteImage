@@ -19,6 +19,7 @@ docker exec "$spi_container" php maintenance/install.php \
 docker exec "$spi_container" chown -R www-data:www-data /var/www/data /var/www/html/images /var/www/html/cache
 docker exec -i "$spi_container" sh -c 'cat >> LocalSettings.php' <<'PHP'
 $wgEnableUploads = true;
+$wgVisualEditorAllowExternalLinkPaste = true;
 $wgAllowCopyUploads = true;
 $wgGroupPermissions['user']['upload_by_url'] = true;
 wfLoadExtension( 'VisualEditor' );

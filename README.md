@@ -26,6 +26,14 @@ $wgGroupPermissions['user']['upload_by_url'] = true;
 
 The user still needs normal upload permissions, and the wiki must allow the file type. For example, WebP requires `webp` in `$wgFileExtensions` if not already allowed. Screenshots and embedded data images do not require `upload_by_url`.
 
+To retain external links in pasted text, enable VisualEditor's own setting:
+
+```php
+$wgVisualEditorAllowExternalLinkPaste = true;
+```
+
+The extension preserves surrounding links and explicit pixel image dimensions, but still follows VisualEditor's import rules. HTML image uploads run with at most four concurrent workers; repeated sources share one upload operation per paste.
+
 ## Usage
 
 Open a page in VisualEditor and paste normally:

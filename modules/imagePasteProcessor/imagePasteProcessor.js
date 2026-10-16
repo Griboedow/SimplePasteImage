@@ -2,6 +2,7 @@
 ( function () {
     'use strict';
     const imageHandler = require( 'ext.simplePasteImage.imageHandler' );
+    const clipboardHtml = require( './clipboardHtml.js' );
 
     function notifyError( count ) {
         mw.notify( mw.message( 'simplepasteimage-upload-error', count ).text(), { type: 'error', autoHide: false } );
@@ -45,18 +46,9 @@
             }
         } );
         const doc = ve.sanitizeHtmlToDocument( raw.body.innerHTML );
-        const images = Array.from( doc.body.querySelectorAll( 'img' ) ).filter( img => {
-            // Only local Parsoid images can retain their resource identity.
-            // An image copied from another wiki still needs to be imported.
-            if ( img.hasAttribute( 'resource' ) ) {
-                try {
-                    return new URL( img.getAttribute( 'src' ), document.baseURI ).origin !== new URL( document.baseURI ).origin;
-                } catch ( error ) {
-                    return true;
-                }
-            }
-            return true;
-        } );
+        // Same origin alone does not identify this wiki (several wikis may share
+        // one host). Verify the actual file URL and resource name before reuse.
+        const images = Array.from( doc.body.querySelectorAll( 'img' ) );
         if ( !images.length ) {
             return original.apply( this, args );
         }
@@ -66,7 +58,7 @@
         let failures = 0;
         const progress = mw.notify( mw.msg( 'simplepasteimage-uploading' ), { tag: 'simplepasteimage', autoHide: false } );
         deferred.always( () => progress.then( notification => notification.close() ) );
-        const work = images.map( async img => {
+        const work = clipboardHtml.forEachLimited( images, 4, async img => {
             const src = img.getAttribute( 'data-simplepasteimage-source' ) || img.getAttribute( 'src' ) || '';
             img.removeAttribute( 'data-simplepasteimage-source' );
             try {
@@ -74,27 +66,19 @@
                     cache.set( src, imageHandler.processRemoteImage( src, beforePasteData.simplePasteImageFiles || [] ) );
                 }
                 const data = await cache.get( src );
+                if ( clipboardHtml.matchesLocalResource( img, data ) ) { return; }
                 const holder = doc.createElement( 'div' );
                 holder.innerHTML = data.veHtml;
                 const replacement = holder.firstElementChild;
-                const newImg = replacement.querySelector( 'img' );
-                if ( img.hasAttribute( 'alt' ) ) {
-                    newImg.setAttribute( 'alt', img.getAttribute( 'alt' ) );
-                }
-                // Replace only this image, never the paragraph/table/list around it.
-                if ( img.parentElement.tagName === 'A' ) {
-                    // Avoid nesting anchors; preserve any text siblings in the link.
-                    const link = img.parentElement;
-                    link.replaceWith( ...Array.from( link.childNodes ) );
-                }
-                img.replaceWith( replacement );
+                clipboardHtml.replaceImage( img, replacement );
             } catch ( error ) {
                 failures++;
                 // Keep an explicit placeholder instead of silently losing the image.
-                img.replaceWith( doc.createTextNode( '[' + mw.msg( 'simplepasteimage-image-failed' ) + ']' ) );
+                const alt = img.getAttribute( 'alt' );
+                img.replaceWith( doc.createTextNode( '[' + mw.msg( 'simplepasteimage-image-failed' ) + ( alt ? ': ' + alt : '' ) + ']' ) );
             }
         } );
-        Promise.all( work ).then( () => {
+        work.then( () => {
             beforePasteData.html = doc.body.innerHTML;
             this.beforePasteData = beforePasteData;
             args[ 1 ] = $( doc.body ).contents();

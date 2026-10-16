@@ -125,23 +125,29 @@
         return matches.length === 1 ? matches[ 0 ] : null;
     }
 
-    async function processRemoteImage( src, files = [] ) {
+    async function findLocalImage( src ) {
         const sourceUrl = new URL( src, document.baseURI );
         if ( /^https?:$/.test( sourceUrl.protocol ) && sourceUrl.origin === new URL( document.baseURI ).origin ) {
-            const parts = sourceUrl.pathname.split( '/' );
-            const candidate = decodeURIComponent( parts[ parts.length - ( parts.includes( 'thumb' ) ? 2 : 1 ) ] );
             try {
+                const parts = sourceUrl.pathname.split( '/' );
+                const candidate = decodeURIComponent( parts[ parts.length - ( parts.includes( 'thumb' ) ? 2 : 1 ) ] );
                 const info = await getImageInfo( candidate );
                 const originalUrl = new URL( info.url );
                 const uploadPath = mw.config.get( 'wgUploadPath' );
                 const thumbPrefix = uploadPath && originalUrl.pathname.replace( uploadPath + '/', uploadPath + '/thumb/' ) + '/';
                 if ( sourceUrl.href === info.url || ( thumbPrefix && sourceUrl.pathname.startsWith( thumbPrefix ) ) ) {
-                    return { filename: candidate, fileHref: info.url, veHtml: buildVeImageWrapper( info.url, candidate, info ) };
+                    return { filename: candidate, fileHref: info.url, veHtml: buildVeImageWrapper( info.url, candidate, info ), isLocal: true };
                 }
             } catch ( error ) {
                 // Not an existing local file: continue with the normal upload path.
             }
         }
+        return null;
+    }
+
+    async function processRemoteImage( src, files = [] ) {
+        const local = await findLocalImage( src );
+        if ( local ) { return local; }
         const file = matchClipboardFile( src, files );
         let filename;
         if ( file ) {
@@ -161,6 +167,6 @@
 
     module.exports = {
         generateUuid, parseUploadWarnings, uploadImageByUrl, uploadImageFromDataUri,
-        uploadImageFile, matchClipboardFile, getImageInfo, buildVeImageWrapper, processRemoteImage, imageData
+        uploadImageFile, matchClipboardFile, getImageInfo, buildVeImageWrapper, findLocalImage, processRemoteImage, imageData
     };
 }() );

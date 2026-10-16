@@ -105,6 +105,7 @@ const fs = require( 'node:fs' );
 
         const sourceResults = await require( './clipboard-sources.cjs' )( { page, context, dataUrl, paste, imageCount, textIncludes, data, count: expectedImages } );
         expectedImages = sourceResults.expectedImages;
+        expectedImages = await require( './complex-paste.cjs' )( { page, dataUrl, paste, imageCount, data, count: expectedImages } );
 
         await page.waitForFunction( () => !( ve.init.target.getSurface().getView().clipboardHandler || ve.init.target.getSurface().getView() ).pasting );
         await page.evaluate( () => {
@@ -122,7 +123,7 @@ const fs = require( 'node:fs' );
         await imageCount( ++expectedImages );
         console.log( 'PASS: internal VisualEditor image copy/paste' );
 
-        await page.getByRole( 'button', { name: 'Save…', exact: true } ).click();
+        await page.getByRole( 'button', { name: /^Save(?: page)?…$/ } ).click();
         await Promise.all( [
             page.waitForNavigation( { waitUntil: 'load' } ),
             page.getByRole( 'button', { name: 'Save page', exact: true } ).click()
@@ -137,7 +138,7 @@ const fs = require( 'node:fs' );
             return response.query.pages[ 0 ].revisions[ 0 ].slots.main.content;
         }, title );
         assert.equal( ( wikitext.match( /\[\[File:/g ) || [] ).length, expectedImages );
-        assert.ok( !wikitext.includes( '|link=http' ), 'Images must not link to raw image URLs' );
+        assert.ok( !/\|link=https?:[^|\]]*\/images\//.test( wikitext ), 'Images must not link to raw upload URLs' );
         console.log( 'PASS: saved wikitext and reloaded page retain all images' );
         assert.deepEqual( errors, [] );
         const artifactDir = process.env.MW_ARTIFACT_DIR || 'tests/artifacts';

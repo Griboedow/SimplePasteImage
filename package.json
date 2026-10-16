@@ -2,10 +2,11 @@
   "name": "simple-paste-image-tests",
   "private": true,
   "scripts": {
-    "test": "node --test tests/upload.test.cjs",
+    "test": "node --test tests/upload.test.cjs tests/clipboard-html.test.cjs",
     "test:e2e": "node tests/paste.e2e.cjs"
   },
   "devDependencies": {
+    "jsdom": "^22.1.0",
     "playwright": "^1.58.0"
   }
 }

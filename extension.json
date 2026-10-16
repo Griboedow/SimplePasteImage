@@ -39,7 +39,8 @@
 			"localBasePath": "modules/imagePasteProcessor",
 			"remoteExtPath": "SimplePasteImage/modules/imagePasteProcessor",
 			"packageFiles": [
-				"imagePasteProcessor.js"
+				"imagePasteProcessor.js",
+				"clipboardHtml.js"
 			],
 			"dependencies": [
 				"ext.simplePasteImage.imageHandler",
